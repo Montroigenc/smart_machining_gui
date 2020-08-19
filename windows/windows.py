@@ -79,15 +79,13 @@ class Window:
         return tk.Button(self.root, text=text, width=w, height=h, command=fcn, bg=color, font=('Helvetica', f'{font_size}'),
                          wraplength=160, padx=padx, pady=pady)
 
-    def change_program_state(self, s, key=None, root=None):
+    def change_program_state(self, s, keys=None, root=None):
         self.res = s
 
         if s == 'add':
-            self.append_vc_row(key, root=root)
+            self.append_vc_row(keys, root=root)
 
         elif "file_" in s:
-
-
             # vc = self.root.children[f"!entry{n_vc}"].get()
             filename = tk.filedialog.askopenfilename(initialdir="/", title="Sélectionner un fichier")
             if filename != "":
@@ -100,8 +98,8 @@ class Window:
                 # root.children['vc_parameters'].children[f"!button{n}"].configure(fg="green", text=filename)
                 # self.vc_data[n].children["!button"].configure(fg="green", text=filename)
 
-                self.active_tables['vc_parameters'].children['!canvas'].children['!frame'].children[f"!button{n_but}"].configure(fg="green", text=filename)
-        else:
+                self.active_tables['parameters'].children['!canvas'].children['!frame'].children[f"!button{n_but}"].configure(fg="green", text=filename)
+        elif s == "quit" or s == "next":
             self.root.quit()
 
     def append_date(self):
@@ -149,31 +147,55 @@ class Window:
         else:
             return key
 
-    def set_operation_window(self):
+    def set_operation_window(self, target):
+        if 'vcmin' in target:
+            title = "Détermination de Vc min"
+            entries = ["Engagement axial ap (mm)",
+                       "Engagement radial ae (mm)",
+                       "Avance par dent fz (mm/tr)"]
+            table2_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "Pc (W)"]
+        elif 'fmin' in target:
+            title = "Détermination de f min"
+            entries = ["Engagement axial ap (mm)",
+                       "Engagement radial ae (mm)",
+                       "Vitesse de coupe Vc (m/min)"]
+            table2_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Fichier de mesure", "Pc (W)"]
+        elif 'admax' in target:
+            title = "Détermination de AD max"
+            entries = ["Engagement axial init ap (mm)",
+                       "Engagement radial init ae (mm)",
+                       "Vitesse de coupe Vc (m/min)",
+                       "Épaisseur de coupe h (mm)"]
+            table2_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "Fichier de mesure", "Pc(W)", "Statut"]
+
+        tk.Label(self.root, text=title, padx=5, pady=5, font='Helvetica 15 bold').pack(pady=15)
+
         # Set Vc input parameters table
         self.active_tables["input_parameters"] = tk.Frame(self.root, name="input_parameters", highlightthickness=2, highlightbackground="black")
 
-        self.set_vc_headers(["Paramètres d’entrée", "Valeurs utilisées"], 'vc_headers_1', self.active_tables["input_parameters"])
-        self.append_entry_row("engagement_Axial", "Engagement axial ap (mm) ", root=self.active_tables["input_parameters"])
-        self.append_entry_row("engagement_radial", "Engagement radial ae (mm)", root=self.active_tables["input_parameters"])
-        self.append_entry_row("avance_dent", "Avance par dent fz (mm/tr) ", root=self.active_tables["input_parameters"])
+        self.set_table_headers(["Paramètres d’entrée", "Valeurs utilisées"], self.active_tables["input_parameters"])
+
+        for i, entry in enumerate(entries):
+            self.append_entry_row(entry, entry, root=self.active_tables["input_parameters"])
+
         self.active_tables["input_parameters"].pack(padx=15, pady=15)
 
         # Set Vc input parameters table
-        self.active_tables["vc_parameters"] = VerticalScrolledFrame(self.root)
+        self.active_tables["parameters"] = VerticalScrolledFrame(self.root)
 
         # Set headers
-        self.set_vc_headers(["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "Pc (W)"], 'vc_headers_2', self.active_tables["vc_parameters"].interior)
+        self.set_table_headers(table2_headers, self.active_tables["parameters"].interior)
 
         # Set first row
-        self.append_vc_row("vc_parameters", self.active_tables["vc_parameters"].interior)
+        self.append_vc_row(table2_headers, root=self.active_tables["parameters"].interior)
 
-        self.active_tables["vc_parameters"].pack(padx=15, pady=15)
+        self.active_tables["parameters"].pack(padx=15, pady=15)
+        self.active_tables["parameters"].interior.pack(padx=20, pady=15)
 
         # Set buttons
         self.active_tables["buttons"] = tk.Frame(self.root, name="buttons")
         self.active_tables["buttons"].pack(padx=15, pady=15)
-        self.append_buttons("buttons", root=self.active_tables["buttons"], root_table=self.active_tables["vc_parameters"].interior)
+        self.append_buttons(table2_headers, root=self.active_tables["buttons"], root_table=self.active_tables["parameters"].interior)
 
         # Pack frames
         # for key in self.active_tables.keys():
@@ -186,8 +208,6 @@ class Window:
         row.pack(side=tk.TOP, fill=tk.X, padx=20, pady=5)
         lab1.pack(side=tk.LEFT)
         lab2.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
-
-        # self.operation_parameters[key] = row
 
     def cbox_callback(self, eventObject):
         self.root.children['diametre'].children['!label2']['text'] = self.tools_data[eventObject.widget.get()][1]
@@ -205,85 +225,48 @@ class Window:
 
         # self.operation_parameters[key] = row
 
-    def append_buttons(self, key, root=None, root_table=None):
-        row = tk.Frame(self.set_root(root), name=key)
-        row.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=5)
-        btn_next = tk.Button(row, text="Suivant", command=lambda *args: self.change_program_state("next"), bg="green", padx=10, pady=5, font='Helvetica 11 bold')
-        btn_add = tk.Button(row, text="Ajouter une autre ligne", command=lambda *args: self.change_program_state("add", key=key, root=root_table), bg="light sky blue", padx=10, pady=5, font='Helvetica 11 bold')
+    def append_buttons(self, keys, root=None, root_table=None):
+        # row = tk.Frame(self.set_root(root), name=key)
+        # row.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=5)
+        btn_next = tk.Button(self.set_root(root), text="Valider", command=lambda *args: self.change_program_state("next"), padx=10, pady=5, font='Helvetica 11 bold')
+        btn_calculer = tk.Button(self.set_root(root), text="Calculer Pc", command=lambda *args: self.change_program_state("compute_vc"), padx=10, pady=5, font='Helvetica 11 bold')
+        btn_add = tk.Button(self.set_root(root), text="Ajouter une autre ligne", command=lambda *args: self.change_program_state("add", keys=keys, root=root_table), padx=10, pady=5, font='Helvetica 11 bold')
 
         # btn_next.grid(row=0, column=0, pady=20, padx=5, columnspan=2)
         # btn_add.grid(row=0, column=2, pady=20, padx=5, columnspan=2)
 
-        btn_next.pack(side=tk.LEFT, padx=20, pady=5)
-        btn_add.pack(side=tk.LEFT, padx=20, pady=5)
+        btn_next.grid(row=0, column=0, padx=20, pady=5)  #.pack(side=tk.LEFT, padx=20, pady=5)
+        btn_calculer.grid(row=0, column=2, padx=20, pady=5)
+        btn_add.grid(row=0, column=4, padx=20, pady=5)  #.pack(side=tk.LEFT, padx=20, pady=5)
 
     def append_entry_row(self, key, text, root=None):
-        # row = tk.Frame(self.set_root(root), name=key, highlightthickness=1, highlightbackground="black")
-        lab = tk.Label(self.set_root(root), width=22, text=text+": ")  #, padx=10, pady=5)
+        lab = tk.Label(self.set_root(root), width=22, text=text+": ")
         ent = tk.Entry(self.set_root(root), width=22)
-        # row.pack(side=tk.TOP, fill=tk.X)
-        # lab.pack(side=tk.LEFT, padx=10, pady=5)
-        # ent.pack(side=tk.LEFT, padx=10, pady=5)  #, expand=tk.YES, fill=tk.X)
 
         lab.grid(row=len(self.operation_parameters)+1, column=0)
         ent.grid(row=len(self.operation_parameters)+1, column=1)
 
-        # row.grid(row=len(self.operation_parameters))
-
         self.operation_parameters[key] = ent
 
-    def set_vc_headers(self, headers, key, root=None):
-        # row = tk.Frame(self.set_root(root), name=key, highlightthickness=1, highlightbackground="black")
-        # # row.pack(side=tk.TOP, fill=tk.X)
-        # row.grid(row=0)
-
+    def set_table_headers(self, headers, root=None):
         for i, h in enumerate(headers):
-            tk.Label(self.set_root(root), text=h, width=22, font='Helvetica 11 bold', bg="gray").grid(row=0, column=i)  #.pack(side=tk.LEFT)
-            # tk.Label(row, text=h, font='Helvetica 11 bold').pack(side=tk.LEFT, expand=tk.YES, fill=tk.X)
+            tk.Label(self.set_root(root), text=h, width=22, font='Helvetica 11 bold', bg="gray").grid(row=0, column=i)
 
-        # tk.Label(row, text="Mesure n°").pack(side=tk.LEFT)
-        # tk.Label(row, text="Vitesse de coupe Vc (m/min)").pack(side=tk.LEFT)
-        # tk.Label(row, text="Fichier de mesure").pack(side=tk.LEFT)
-        # tk.Label(row, text="Pc (W)").pack(side=tk.LEFT)
-
-        # l0 = tk.Label(row, text="Mesure n°").grid(row=1, column=0, pady=5, padx=5)
-        # l1 = tk.Label(row, text="Vitesse de coupe Vc (m/min)").grid(row=1, column=1, pady=5, padx=5)
-        # l2 = tk.Label(row, text="Fichier de mesure").grid(row=1, column=2, pady=5, padx=5)
-        # l3 = tk.Label(row, text="Pc (W)").grid(row=1, column=3, pady=5, padx=5)
-        #
-        # row.pack(side=tk.TOP, fill=tk.X, padx=20, pady=5)
-        # l0.pack(side=tk.LEFT)
-        # l1.pack(side=tk.LEFT)
-        # l2.pack(side=tk.LEFT)
-        # l3.pack(side=tk.LEFT)
-
-        # self.vc_data["headers"] = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "Pc (W)"]
-
-    def append_vc_row(self, key, root=None):
-        # row = tk.Frame(self.set_root(root), name=key)
-        # row = tk.Frame(self.set_root(root), highlightthickness=1, highlightbackground="black")
-        # row.pack(side=tk.TOP, fill=tk.X, padx=20)
-
-        # row = VcRow(self.set_root(root))
-
+    def append_vc_row(self, keys, root=None):
         n = len(self.vc_data)
-        self.vc_data[f"{n}"] = dict()
         tk.Label(self.set_root(root), text=f"{n}").grid(row=n+1, column=0, pady=5, padx=5)
-        self.vc_data[f"{n}"]['ent_vc'] = tk.Entry(self.set_root(root)).grid(row=n+1, column=1, pady=5, padx=5)
-        self.vc_data[f"{n}"]['btn_file'] = tk.Button(self.set_root(root), text="Parcourir", command=lambda *args: self.change_program_state(f"file_{n}", key)).grid(row=n+1, column=2, pady=5, padx=5)
-        self.vc_data[f"{n}"]['ent_pc'] = tk.Entry(self.set_root(root)).grid(row=n+1, column=3, pady=5, padx=5)
 
-        # row.pack(side=tk.TOP, fill=tk.X, padx=20)
-        # row.pack(padx=20)
-        # row.grid(row=n+1)
+        self.vc_data[f"{n}"] = dict()
+        for col_idx, key in enumerate(keys[1:]):
+            print([col_idx, key])
+            if key == "Fichier de mesure":
+                self.vc_data[f"{n}"][key] = tk.Button(self.set_root(root), text="Parcourir", command=lambda *args: self.change_program_state(f"file_{n}")).grid(row=n+1, column=col_idx+1, pady=5, padx=5)
+            else:
+                self.vc_data[f"{n}"][key] = tk.Entry(self.set_root(root)).grid(row=n+1, column=col_idx+1, pady=5, padx=5)
 
-        # row.label = tk.Label(row, text=f"{n}").pack(side=tk.LEFT, expand=tk.YES, fill=tk.X)
-        # row.ent_vc = tk.Entry(row).pack(side=tk.LEFT, expand=tk.YES, fill=tk.X)
-        # row.btn_file = tk.Button(row, text="Parcourir", command=lambda *args: self.change_program_state(f"file_{n}", key, root=root)).pack(side=tk.LEFT, expand=tk.YES, fill=tk.X)
-        # row.ent_pc = tk.Entry(row).pack(side=tk.LEFT, expand=tk.YES, fill=tk.X)
-
-        # self.vc_data[f"{n}"] = [ent_vc, btn_file, ent_pc, ""]
-        # self.vc_data[f"{n}"] = row
+        # self.vc_data[f"{n}"]['ent_vc'] = tk.Entry(self.set_root(root)).grid(row=n+1, column=1, pady=5, padx=5)
+        # self.vc_data[f"{n}"]['btn_file'] = tk.Button(self.set_root(root), text="Parcourir", command=lambda *args: self.change_program_state(f"file_{n}")).grid(row=n+1, column=2, pady=5, padx=5)
+        # self.vc_data[f"{n}"]['ent_pc'] = tk.Entry(self.set_root(root)).grid(row=n+1, column=3, pady=5, padx=5)
 
     def quit(self):
         self.root.destroy()
@@ -353,36 +336,14 @@ def set_general_parameters(win):
     win.btn1.pack(pady=10)
 
 
-def set_dynamic_entry(win):
-    # # create a vertical scrollbar-no need
-    # # to write orient as it is by
-    # # default vertical
-    # v = tk.Scrollbar(win)
-    #
-    # # attach Scrollbar to root window on the side
-    # v.grid(row=1, column=4, pady=5, padx=5, rowspan=4)
-
-    # Set buttons
-    win.append_buttons()
-
-    # Set table frame
-    # win.add_table("vc_parameters")
-
-    # Set headers
-    win.set_vc_headers("vc_parameters")
-
-    # Set first row
-    win.append_vc_row("vc_parameters")
-
-
-def set_user_input_parameters_window(name, title, tools_data, operation=''):
-    win = Window(name, title, tools_data)
+def set_user_input_parameters_window(target, title, tools_data, operation=''):
+    win = Window(target, title, tools_data)
 
     if operation == "":
         set_general_parameters(win)
     else:
         if operation == "Fraisage":
-            win.set_operation_window()
+            win.set_operation_window(target)
             # set_fraisage_parameters_table(win)
         # elif operation == "Perçage":
         #     set_fraisage_parameters(win)
@@ -393,7 +354,8 @@ def set_user_input_parameters_window(name, title, tools_data, operation=''):
 
     win()
 
-    res = parse_res(win)
+    # res = parse_res(win)
+    res = None
 
     win.quit()
 
