@@ -23,11 +23,15 @@ class UserGUI():
         self.current_operation = ""
 
     def __call__(self):
-        operation = set_trioption_window("operation", "Choix du type d'opération et de ses caractéristiques", "Tournage", "Perçage", "Fraisage")
+        # get operation type
+        # operation = set_trioption_window("operation", "Choix du type d'opération et de ses caractéristiques", "Tournage", "Perçage", "Fraisage")
+        operation = "Fraisage"
 
+        # set tools data from config file corresponding with previously selected operation
         self.tools_data = load_tools_data(operation)
 
-        general_parameters = set_user_input_parameters_window("operation_parameters", "Caractéristiques de l'usinage", self.tools_data)
+        # ask user to chose a tool from the predefined list in the config file
+        # general_parameters = set_user_input_parameters_window("operation_parameters", "Caractéristiques de l'usinage", self.tools_data)
 
         # vc_min = set_trioption_window("vc_min", "Détermination Vc min", "ap, f", "D, f", "D, ap, ae, fz, Z")
         operation_parameters = set_user_input_parameters_window("operation_parameters", "Paràmetres d'operation", self.tools_data, operation)
@@ -38,7 +42,7 @@ class UserGUI():
 
 if __name__ == "__main__":
     # try:
-    print("Smart machining app launched")
+    print("LOCOMO (LOgiciel COm MicrO5) app launched")
     gui = UserGUI()
     gui()
     # except:
