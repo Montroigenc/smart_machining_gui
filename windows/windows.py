@@ -14,6 +14,8 @@ import sys
 import traceback
 import shutil
 
+from utils.utils import load_tools_data
+
 
 class VerticalScrolledFrame(tk.Frame):
     """A pure Tkinter scrollable frame that actually works!
@@ -22,6 +24,7 @@ class VerticalScrolledFrame(tk.Frame):
     * This frame only allows vertical scrolling
 
     """
+
     def __init__(self, parent, *args, **kw):
         tk.Frame.__init__(self, parent, *args, **kw)
 
@@ -48,96 +51,133 @@ class VerticalScrolledFrame(tk.Frame):
             if interior.winfo_reqwidth() != canvas.winfo_width():
                 # update the canvas's width to fit the inner frame
                 canvas.config(width=interior.winfo_reqwidth())
+
         interior.bind('<Configure>', _configure_interior)
 
         def _configure_canvas(event):
             if interior.winfo_reqwidth() != canvas.winfo_width():
                 # update the inner frame's width to fill the canvas
                 canvas.itemconfigure(interior_id, width=canvas.winfo_width())
+
         canvas.bind('<Configure>', _configure_canvas)
 
 
 class Window:
-    def __init__(self, name, title, tools_data=None):
-        self.name = name
+    def __init__(self, app_name, **kwargs):
         self.root = tk.Tk()
         self.root.protocol("WM_DELETE_WINDOW", self.user_exit)
-        self.root.title(title)
+        self.root.title(app_name)
+
+        if 'window_title' in kwargs:
+            tk.Label(self.root, text=kwargs['window_title'], padx=5, pady=5, font='Helvetica 15 bold').pack(pady=15)
+
         self.res = "ini"
-        # self.operation_parameters = {}
         self.vc_data = dict()
         self.manual_exit = False
-        self.tools_data = tools_data
+        self.tools_data = []
+        self.available_operations = kwargs['available_operations'] if 'available_operations' in kwargs else None
         self.active_tables = dict()
 
         self.operation_parameters = dict()
+        self.data = dict()
 
     def __call__(self, *args, **kwargs):
         self.root.mainloop()
 
-    def get_button(self, text, color, fcn, w=12, h=3, font_size=16, padx=2, pady=2):
-        return tk.Button(self.root, text=text, width=w, height=h, command=fcn, bg=color, font=('Helvetica', f'{font_size}'),
-                         wraplength=160, padx=padx, pady=pady)
+    def get_button(self, text, **kwargs):  # fcn=None, color=None, root=None, w=12, h=3, font_size=11, padx=10, pady=5, bold=False):
+        root = kwargs['root'] if 'root' in kwargs else self.root
+        bold = ' bold' if 'bold' in kwargs else ''
+        color = kwargs['color'] if 'color' in kwargs else ''
+        w = 12 if 'w' not in kwargs else kwargs['w']
+        h = 3 if 'h' not in kwargs else kwargs['h']
+        font_size = 11 if 'font_size' not in kwargs else kwargs['font_size']
+        padx = 10 if 'padx' not in kwargs else kwargs['padx']
+        pady = 5 if 'pady' not in kwargs else kwargs['pady']
 
-    def change_program_state(self, s, keys=None, root=None):
-        self.res = s
+        return tk.Button(root, text=text, width=w, height=h, command=kwargs['fcn'], bg=color, font=f"Helvetica {font_size}{bold}", wraplength=160, padx=padx, pady=pady)
 
-        if s == 'add':
-            self.append_vc_row(keys, root=root)
+    def get_data(self, items):
+        res = dict()
+        for key, widget in items:
+            if 'label' not in key:
+                if key == 'date':
+                    vals = []
+                    for w in widget.children:
+                        vals.append(f"{widget.children[w].get()}")
 
-        elif "file_" in s:
-            # vc = self.root.children[f"!entry{n_vc}"].get()
-            filename = tk.filedialog.askopenfilename(initialdir="/", title="Sélectionner un fichier")
-            if filename != "":
-                n = int(s.replace("file_", "")) + 1
-                # n_vc = (n - 1) * 2 + 1
-                # n_pc = (n - 1) * 2 + 2
+                    res[key] = ('/'.join(vals, ))
 
-                n_but = '' if n == 1 else n
-                # self.root.children[f"!button{n_file}"].configure(fg="green", text=filename)
-                # root.children['vc_parameters'].children[f"!button{n}"].configure(fg="green", text=filename)
-                # self.vc_data[n].children["!button"].configure(fg="green", text=filename)
+                elif 'Combobox' in str(type(widget)) or 'Entry' in str(type(widget)):
+                    res[key] = widget.get()
+                elif 'Label' in str(type(widget)):
+                    res[key] = widget['text']
+                else:
+                    res[key] = widget['text']
 
-                self.active_tables['parameters'].children['!canvas'].children['!frame'].children[f"!button{n_but}"].configure(fg="green", text=filename)
-        elif s == "quit" or s == "next":
-            self.root.quit()
+        return res
 
-    def append_date(self):
+    def change_program_state(self, *args, **kwargs):
+        for action in kwargs['actions']:
+            if action == 'add_dynamic_row':
+                self.append_dynamic_row(kwargs['keys'], root=kwargs['action_root'][1])
+
+            elif action == 'select_file':
+                filename = tk.filedialog.askopenfilename(initialdir="/", title="Sélectionner un fichier")
+                if filename != "":
+                    kwargs['action_root'].children[f"fichier de mesure_{kwargs['file'] + 1}"].configure(fg="green", text=filename)
+
+            elif action == "get_data":
+                if len(kwargs['action_root']) > 1:
+                    for table in kwargs['action_root']:
+                        self.data.update(self.get_data(table.children.items()))
+                else:
+                    self.data = self.get_data(kwargs['action_root'].children.items())
+
+            elif action == "compute_vc":
+                pass
+
+            elif action == "quit" or action == "next":
+                self.root.quit()
+
+    def append_date(self, root=None, row_idx=0):
         from datetime import date
+
+        root = self.root if root is None else root
         today = date.today()
 
-        row = tk.Frame(self.root)
-        lab = tk.Label(row, width=20, text="Date du traitement: ", anchor='w', padx=5, pady=5)
+        date_cell = tk.Frame(root, name='date')
+        lab = tk.Label(root, width=25, text="Date du traitement :", padx=5, pady=5)
 
-        day = tk.ttk.Combobox(row, values=[i for i in range(1, 32)])
+        day = tk.ttk.Combobox(date_cell, values=[i for i in range(1, 32)], width=2, name='day')
         day.current(today.day - 1)
 
-        month = tk.ttk.Combobox(row, values=["janvier",
-                                        "février",
-                                        "mars",
-                                        "avril",
-                                        "mai",
-                                        "juin",
-                                        "juillet",
-                                        "aout",
-                                        "septembre",
-                                        "octobre",
-                                        "novembre",
-                                        "décembre"],
-                                state="readonly")
+        month = tk.ttk.Combobox(date_cell, values=["janvier",
+                                                   "février",
+                                                   "mars",
+                                                   "avril",
+                                                   "mai",
+                                                   "juin",
+                                                   "juillet",
+                                                   "août",
+                                                   "septembre",
+                                                   "octobre",
+                                                   "novembre",
+                                                   "décembre"],
+                                state="readonly",
+                                width=8,
+                                name='month')
 
         month.current(today.month - 1)
 
-        year = tk.ttk.Combobox(row, values=[i for i in range(2020, 2040)])
+        year = tk.ttk.Combobox(date_cell, values=[i for i in range(2020, 2040)], width=4, name='year')
         year.current(today.year - 2020)
 
-        row.pack(side=tk.TOP, fill=tk.X, padx=20, pady=5)
-        lab.pack(side=tk.LEFT)
-        day.pack(side=tk.LEFT, pady=5)
-        month.pack(side=tk.LEFT, padx=5, pady=5)
-        year.pack(side=tk.LEFT, expand=tk.YES, fill=tk.X)
+        lab.grid(row=row_idx, column=0)
+        date_cell.grid(row=row_idx, column=1)
 
-        # self.operation_parameters["date"] = row
+        day.pack(side=tk.LEFT, pady=1)
+        month.pack(side=tk.LEFT, padx=1, pady=1)
+        year.pack(side=tk.LEFT, expand=tk.YES, pady=1)
 
     def set_root(self, key):
         if key is None:
@@ -147,126 +187,90 @@ class Window:
         else:
             return key
 
-    def set_operation_window(self, target):
-        if 'vcmin' in target:
-            title = "Détermination de Vc min"
-            entries = ["Engagement axial ap (mm)",
-                       "Engagement radial ae (mm)",
-                       "Avance par dent fz (mm/tr)"]
-            table2_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "Pc (W)"]
-        elif 'fmin' in target:
-            title = "Détermination de f min"
-            entries = ["Engagement axial ap (mm)",
-                       "Engagement radial ae (mm)",
-                       "Vitesse de coupe Vc (m/min)"]
-            table2_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Fichier de mesure", "Pc (W)"]
-        elif 'admax' in target:
-            title = "Détermination de AD max"
-            entries = ["Engagement axial init ap (mm)",
-                       "Engagement radial init ae (mm)",
-                       "Vitesse de coupe Vc (m/min)",
-                       "Épaisseur de coupe h (mm)"]
-            table2_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "Fichier de mesure", "Pc(W)", "Statut"]
+    def operation_cbox_callback(self, eventObject, root):
+        root = self.root if root is None else root
+        self.tools_data = load_tools_data(eventObject.widget.get())
 
-        tk.Label(self.root, text=title, padx=5, pady=5, font='Helvetica 15 bold').pack(pady=15)
+        root.children['tool']['values'] = list(load_tools_data(eventObject.widget.get()))
+        root.children['tool'].current(0)
 
-        # Set Vc input parameters table
-        self.active_tables["input_parameters"] = tk.Frame(self.root, name="input_parameters", highlightthickness=2, highlightbackground="black")
+        diametre = self.tools_data[root.children['tool'].get()][1]
+        n_dents = self.tools_data[root.children['tool'].get()][2]
 
-        self.set_table_headers(["Paramètres d’entrée", "Valeurs utilisées"], self.active_tables["input_parameters"])
+        self.set_tool_parameters(root, diametre, n_dents)
 
-        for i, entry in enumerate(entries):
-            self.append_entry_row(entry, entry, root=self.active_tables["input_parameters"])
+    def tool_cbox_callback(self, eventObject, root):
+        root = self.root if root is None else root
+        diametre = self.tools_data[eventObject.widget.get()][1]
+        n_dents = self.tools_data[eventObject.widget.get()][2]
 
-        self.active_tables["input_parameters"].pack(padx=15, pady=15)
+        self.set_tool_parameters(root, diametre, n_dents)
 
-        # Set Vc input parameters table
-        self.active_tables["parameters"] = VerticalScrolledFrame(self.root)
+    def set_tool_parameters(self, root, diametre, n_dents):
+        # Set diametre
+        root.children['diameter']['text'] = diametre
+        # Set nombre de dents
+        root.children['n_teeth']['text'] = n_dents
 
-        # Set headers
-        self.set_table_headers(table2_headers, self.active_tables["parameters"].interior)
+    def append_combobox_row(self, text, values, fcn, **kwargs):  # root=None, row=0):
+        root = kwargs['root'] if 'root' in kwargs else self.root
+        row = kwargs['row'] if 'row' in kwargs else 0
 
-        # Set first row
-        self.append_vc_row(table2_headers, root=self.active_tables["parameters"].interior)
+        tk.Label(root, width=25, text=text + ": ", padx=5, pady=5).grid(row=row, column=0)
 
-        self.active_tables["parameters"].pack(padx=15, pady=15)
-        self.active_tables["parameters"].interior.pack(padx=20, pady=15)
+        name = kwargs['name'] if 'name' in kwargs else text.lower()
+        cbox = tk.ttk.Combobox(root, values=values, state="readonly", width=22, name=name)
+        cbox.bind("<<ComboboxSelected>>", lambda event, root=root: fcn(event, root))
+        cbox.grid(row=row, column=1)
 
-        # Set buttons
-        self.active_tables["buttons"] = tk.Frame(self.root, name="buttons")
-        self.active_tables["buttons"].pack(padx=15, pady=15)
-        self.append_buttons(table2_headers, root=self.active_tables["buttons"], root_table=self.active_tables["parameters"].interior)
+    def append_buttons(self, keys, **kwargs):
+        root = kwargs['root'] if 'root' in kwargs else self.root
+        root_table = kwargs['root_table'] if 'root_table' in kwargs else None
 
-        # Pack frames
-        # for key in self.active_tables.keys():
-        #     self.active_tables[key].pack(side=tk.TOP, fill=tk.X, padx=20, pady=10)
+        btn_next = tk.Button(root, text="Valider", command=lambda **kwargs: self.change_program_state(actions=["get_data", "next"], action_root=root_table), padx=10, pady=5, font='Helvetica 11 bold')
+        btn_calculer = tk.Button(root, text="Calculer Pc", command=lambda **kwargs: self.change_program_state(actions=["compute_vc"]), padx=10, pady=5, font='Helvetica 11 bold')
+        btn_add = tk.Button(root, text="Ajouter une autre ligne", command=lambda **kwargs: self.change_program_state(keys=keys, actions=["add_dynamic_row"], action_root=root_table), padx=10, pady=5, font='Helvetica 11 bold')
 
-    def append_label_row(self, key, text1, text2="", root=None):
-        row = tk.Frame(self.set_root(root), name=key)
-        lab1 = tk.Label(row, width=20, text=text1+": ", anchor='w', padx=5, pady=5)
-        lab2 = tk.Label(row, width=20, text=text2, anchor='w', padx=5, pady=5)
-        row.pack(side=tk.TOP, fill=tk.X, padx=20, pady=5)
-        lab1.pack(side=tk.LEFT)
-        lab2.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
-
-    def cbox_callback(self, eventObject):
-        self.root.children['diametre'].children['!label2']['text'] = self.tools_data[eventObject.widget.get()][1]
-        self.root.children['n_dents'].children['!label2']['text'] = self.tools_data[eventObject.widget.get()][2]
-
-    def append_combobox_row(self, key, text, values):
-        row = tk.Frame(self.root, name=key)
-        lab = tk.Label(row, width=20, text=text + ": ", anchor='w', padx=5, pady=5)
-        cbox = tk.ttk.Combobox(row, values=values, state="readonly")
-        cbox.bind("<<ComboboxSelected>>", self.cbox_callback)
-
-        row.pack(side=tk.TOP, fill=tk.X, padx=20, pady=5)
-        lab.pack(side=tk.LEFT)
-        cbox.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
-
-        # self.operation_parameters[key] = row
-
-    def append_buttons(self, keys, root=None, root_table=None):
-        # row = tk.Frame(self.set_root(root), name=key)
-        # row.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=5)
-        btn_next = tk.Button(self.set_root(root), text="Valider", command=lambda *args: self.change_program_state("next"), padx=10, pady=5, font='Helvetica 11 bold')
-        btn_calculer = tk.Button(self.set_root(root), text="Calculer Pc", command=lambda *args: self.change_program_state("compute_vc"), padx=10, pady=5, font='Helvetica 11 bold')
-        btn_add = tk.Button(self.set_root(root), text="Ajouter une autre ligne", command=lambda *args: self.change_program_state("add", keys=keys, root=root_table), padx=10, pady=5, font='Helvetica 11 bold')
-
-        # btn_next.grid(row=0, column=0, pady=20, padx=5, columnspan=2)
-        # btn_add.grid(row=0, column=2, pady=20, padx=5, columnspan=2)
-
-        btn_next.grid(row=0, column=0, padx=20, pady=5)  #.pack(side=tk.LEFT, padx=20, pady=5)
+        btn_next.grid(row=0, column=0, padx=20, pady=5)
         btn_calculer.grid(row=0, column=2, padx=20, pady=5)
-        btn_add.grid(row=0, column=4, padx=20, pady=5)  #.pack(side=tk.LEFT, padx=20, pady=5)
+        btn_add.grid(row=0, column=4, padx=20, pady=5)
 
-    def append_entry_row(self, key, text, root=None):
-        lab = tk.Label(self.set_root(root), width=22, text=text+": ")
-        ent = tk.Entry(self.set_root(root), width=22)
+    def append_entry_row(self, text, **kwargs):
+        root = kwargs['root'] if 'root' in kwargs else self.root
+        row = kwargs['row'] if 'row' in kwargs else 0
 
-        lab.grid(row=len(self.operation_parameters)+1, column=0)
-        ent.grid(row=len(self.operation_parameters)+1, column=1)
+        tk.Label(root, width=25, text=text + " :").grid(row=row, column=0)
 
-        self.operation_parameters[key] = ent
+        ent_name = kwargs['ent_name'] if 'ent_name' in kwargs else f"label_r{row}c1"
+        tk.Entry(root, width=25, name=ent_name).grid(row=row, column=1)
 
-    def set_table_headers(self, headers, root=None):
+    def set_label_row(self, headers, **kwargs):  # root=None, row=0, bold=True, names=None):
+        root = kwargs['root'] if 'root' in kwargs else self.root
+        row = kwargs['row'] if 'row' in kwargs else 0
+
         for i, h in enumerate(headers):
-            tk.Label(self.set_root(root), text=h, width=22, font='Helvetica 11 bold', bg="gray").grid(row=0, column=i)
-
-    def append_vc_row(self, keys, root=None):
-        n = len(self.vc_data)
-        tk.Label(self.set_root(root), text=f"{n}").grid(row=n+1, column=0, pady=5, padx=5)
-
-        self.vc_data[f"{n}"] = dict()
-        for col_idx, key in enumerate(keys[1:]):
-            print([col_idx, key])
-            if key == "Fichier de mesure":
-                self.vc_data[f"{n}"][key] = tk.Button(self.set_root(root), text="Parcourir", command=lambda *args: self.change_program_state(f"file_{n}")).grid(row=n+1, column=col_idx+1, pady=5, padx=5)
+            name = kwargs['names'][i] if 'names' in kwargs else f"label_r{row}c{i}"
+            if 'header' in kwargs:
+                tk.Label(root, text=h, width=22, font='Helvetica 11 bold', bg='gray', name=name).grid(row=row, column=i)
             else:
-                self.vc_data[f"{n}"][key] = tk.Entry(self.set_root(root)).grid(row=n+1, column=col_idx+1, pady=5, padx=5)
+                tk.Label(root, text=h, width=22, name=name).grid(row=row, column=i)
 
-        # self.vc_data[f"{n}"]['ent_vc'] = tk.Entry(self.set_root(root)).grid(row=n+1, column=1, pady=5, padx=5)
-        # self.vc_data[f"{n}"]['btn_file'] = tk.Button(self.set_root(root), text="Parcourir", command=lambda *args: self.change_program_state(f"file_{n}")).grid(row=n+1, column=2, pady=5, padx=5)
-        # self.vc_data[f"{n}"]['ent_pc'] = tk.Entry(self.set_root(root)).grid(row=n+1, column=3, pady=5, padx=5)
+    def append_dynamic_row(self, keys, **kwargs):
+        root = kwargs['root'] if 'root' in kwargs else self.root
+        n = len(root.children) // len(keys) - 1
+        row = n + 1
+        tk.Label(root, text=f"{n}").grid(row=row, column=0, pady=5, padx=5)
+
+        # self.vc_data[f"{n}"] = dict()
+        for col_idx, key in enumerate(keys[1:]):
+            name = f'{key.lower()}_{row}'
+
+            if key == "Fichier de mesure":
+                # self.vc_data[f"{n}"][key] = tk.Button(root, text="Parcourir", command=lambda **kwargs: self.change_program_state(actions=['select_file'], file=n, action_root=root), name=name)
+                btn = tk.Button(root, text="Parcourir", command=lambda **kwargs: self.change_program_state(actions=['select_file'], file=n, action_root=root), name=name)
+                btn.grid(row=row, column=col_idx + 1, pady=5, padx=5)
+            else:
+                tk.Label(root, text='...', name=name).grid(row=row, column=col_idx + 1, pady=5, padx=5)
 
     def quit(self):
         self.root.destroy()
@@ -277,28 +281,6 @@ class Window:
 
         if selection == 'yes':
             self.root.quit()
-
-
-def set_trioption_window(name, title, t1, t2, t3):
-    win = Window(name, title)
-
-    # Set buttons
-    win.btn1 = win.get_button(text=t1, color="blue", fcn=lambda *args: win.change_program_state(t1))
-    win.btn2 = win.get_button(text=t2, color="green", fcn=lambda *args: win.change_program_state(t2))
-    win.btn3 = win.get_button(text=t3, color="yellow", fcn=lambda *args: win.change_program_state(t3))
-
-    # Place everything
-    win.btn1.grid(row=0, column=0, padx=20, pady=20)
-    win.btn2.grid(row=0, column=1, padx=20, pady=20)
-    win.btn3.grid(row=0, column=2, padx=20, pady=20)
-
-    win()
-
-    res = win.res
-
-    win.quit()
-
-    return res
 
 
 def parse_res(win):
@@ -318,45 +300,113 @@ def parse_res(win):
     return res
 
 
-def set_general_parameters(win):
+def set_general_machining_characteristics(win):
+    frame = tk.Frame(win.root, name='general_machining_characteristics')
+
     # Set text entries
-    win.append_combobox_row("outil", "Outil", list(win.tools_data.keys()))
-    # win.append_user_text("outil", "Outil")
-    win.append_label_row("diametre", "Diamètre")
-    win.append_label_row("n_dents", "Nombre de dents")
-    # win.append_user_text("diametre", "Diamètre")
-    # win.append_user_text("n_dents", "Nombre de dents")
-    win.append_entry_row("operateur", "Opérateur")
-    win.append_date()
-    win.append_entry_row("lubrification", "Lubrification")
-    win.append_entry_row("commentaires", "Commentaires")
+    win.append_combobox_row("Opération", list(win.available_operations), fcn=win.operation_cbox_callback, root=frame, row=1, name='operation')
+    win.append_combobox_row("Outil", list(win.tools_data), fcn=win.tool_cbox_callback, root=frame, row=2, name='tool')
+    win.set_label_row(["Diamètre :", ""], root=frame, row=3, names=['', 'diameter'])
+    win.set_label_row(["Nombre de dents :", ""], root=frame, row=4, names=['', 'n_teeth'])
+
+    win.append_entry_row("Opérateur", row=5, root=frame, ent_name='user_name')
+    win.append_date(root=frame, row_idx=6)
+    win.append_entry_row("Lubrification", row=7, root=frame, ent_name='lubrication')
+    win.append_entry_row("Commentaires", row=8, root=frame, ent_name='comments')
+
+    frame.pack(padx=20, pady=20)
 
     # Set buttons
-    win.btn1 = win.get_button(text="Suivant", color="green", fcn=lambda *args: win.change_program_state("next"))
-    win.btn1.pack(pady=10)
+    tk.Button(win.root, text=" Suivant ", command=lambda **kwargs: win.change_program_state(actions=["get_data", "next"], action_root=frame), pady=5).pack(pady=10)
 
 
-def set_user_input_parameters_window(target, title, tools_data, operation=''):
-    win = Window(target, title, tools_data)
+def set_operation_window(win, target):
+    if 'Vc min' in target:
+        entries = ["Engagement axial ap (mm)",
+                   "Engagement radial ae (mm)",
+                   "Avance par dent fz (mm/tr)"]
+        table2_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "Pc (W)"]
+    elif 'f min' in target:
+        entries = ["Engagement axial ap (mm)",
+                   "Engagement radial ae (mm)",
+                   "Vitesse de coupe Vc (m/min)"]
+        table2_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Fichier de mesure", "Pc (W)"]
+    elif 'AD max' in target:
+        entries = ["Engagement axial init ap (mm)",
+                   "Engagement radial init ae (mm)",
+                   "Vitesse de coupe Vc (m/min)",
+                   "Épaisseur de coupe h (mm)"]
+        table2_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "Fichier de mesure", "Pc(W)", "Statut"]
 
-    if operation == "":
-        set_general_parameters(win)
-    else:
-        if operation == "Fraisage":
-            win.set_operation_window(target)
-            # set_fraisage_parameters_table(win)
-        # elif operation == "Perçage":
-        #     set_fraisage_parameters(win)
-        # elif operation == "Tournage":
-        #     set_fraisage_parameters(win)
-        # elif operation == "vc_range":
-        # set_dynamic_entry(win)
+    # Set Vc input parameters table
+    win.active_tables["input_parameters"] = tk.Frame(win.root, name="input_parameters", highlightthickness=2, highlightbackground="black")
+
+    win.set_label_row(["Paramètres d’entrée", "Valeurs utilisées"], root=win.active_tables["input_parameters"], header=True)
+
+    for i, entry in enumerate(entries):
+        win.append_entry_row(entry, row=i+1, root=win.active_tables["input_parameters"])
+
+    win.active_tables["input_parameters"].pack(padx=15, pady=15)
+
+    # Set Vc input parameters table
+    win.active_tables["parameters"] = VerticalScrolledFrame(win.root)
+
+    # Set headers
+    win.set_label_row(table2_headers, root=win.active_tables["parameters"].interior, header=True)
+
+    # Set first row
+    win.append_dynamic_row(table2_headers, root=win.active_tables["parameters"].interior)
+
+    win.active_tables["parameters"].pack(padx=15, pady=15)
+    win.active_tables["parameters"].interior.pack(padx=20, pady=15)
+
+    # Set buttons
+    win.active_tables["buttons"] = tk.Frame(win.root, name="buttons")
+    win.active_tables["buttons"].pack(padx=15, pady=15)
+    win.append_buttons(table2_headers, root=win.active_tables["buttons"], root_table=[win.active_tables["input_parameters"], win.active_tables["parameters"].interior])
+
+    # Pack frames
+    # for key in win.active_tables.keys():
+    #     win.active_tables[key].pack(side=tk.TOP, fill=tk.X, padx=20, pady=10)
+
+
+def set_user_input_parameters_window(name, target, tools_data, operation):
+    win = Window(name, target, tools_data)
+    set_operation_window(win, target)
+
+    # if operation == "":
+    #     set_general_window(win, operations)
+    # else:
+    #     if operation == "Fraisage":
+    #         set_operation_window(win, target)
+    #         # set_fraisage_parameters_table(win)
+    #     # elif operation == "Perçage":
+    #     #     set_fraisage_parameters(win)
+    #     # elif operation == "Tournage":
+    #     #     set_fraisage_parameters(win)
+    #     # elif operation == "vc_range":
+    #     # set_dynamic_entry(win)
 
     win()
 
-    # res = parse_res(win)
-    res = None
+    res = parse_res(win)
+    # res = None
 
+    win.quit()
+
+    return res
+
+
+def set_user_window(app_name, target, **kwargs):
+    win = Window(app_name, window_title=target, **kwargs)
+    if target == "Caractéristiques de l'usinage":
+        set_general_machining_characteristics(win)
+
+    elif "Détermination" in target:
+        set_operation_window(win, target)
+
+    win()
+    res = win.data
     win.quit()
 
     return res

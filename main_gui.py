@@ -14,34 +14,35 @@ import sys
 import traceback
 import shutil
 
-from windows.windows import set_trioption_window, set_user_input_parameters_window
-from utils.utils import load_tools_data
+from windows.windows import set_user_window
 
 
 class UserGUI():
     def __init__(self):
         self.current_operation = ""
+        self.app_name = "Logiciel COM Micro5"
+        self.available_operations = "Tournage", "Perçage", "Fraisage"
 
     def __call__(self):
         # get operation type
-        # operation = set_trioption_window("operation", "Choix du type d'opération et de ses caractéristiques", "Tournage", "Perçage", "Fraisage")
+        # operation = set_trioption_window(self.app_name, "Choix du type d'opération", "Tournage", "Perçage", "Fraisage")
         operation = "Fraisage"
 
         # set tools data from config file corresponding with previously selected operation
-        self.tools_data = load_tools_data(operation)
+        # self.tools_data = load_tools_data(operation)
 
         # ask user to chose a tool from the predefined list in the config file
-        # general_parameters = set_user_input_parameters_window("operation_parameters", "Caractéristiques de l'usinage", self.tools_data)
+        # general_parameters = set_user_window(self.app_name, "Caractéristiques de l'usinage", available_operations=self.available_operations)
 
         # vc_min = set_trioption_window("vc_min", "Détermination Vc min", "ap, f", "D, f", "D, ap, ae, fz, Z")
-        vcmin_operation_parameters = set_user_input_parameters_window("vcmin_operation_parameters", "Paràmetres d'operation", self.tools_data, operation)
+        vcmin_operation_parameters = set_user_window(self.app_name, "Détermination de Vc min", operation=operation)
         # fh_min = set_trioption_window("vc_min", "Détermination fmin/hmin", "ap, Vc", "D, Vc", "D, ap, ae, Vc, Z")
 
-        fmin_operation_parameters = set_user_input_parameters_window("fmin_operation_parameters", "Paràmetres d'operation", self.tools_data, operation)
+        fmin_operation_parameters = set_user_input_parameters_window(self.app_name, "Détermination de f min", self.tools_data, operation)
 
-        admax_operation_parameters = set_user_input_parameters_window("admax_operation_parameters", "Paràmetres d'operation", self.tools_data, operation)
+        admax_operation_parameters = set_user_input_parameters_window(self.app_name, "Détermination de AD max", self.tools_data, operation)
 
-        vc_range = set_user_input_parameters_window("vc_range", "Définition de l'intervalle de mesure en Vc", self.tools_data, "vc_range")
+        # vc_range = set_user_input_parameters_window("vc_range", "Définition de l'intervalle de mesure en Vc", self.tools_data, "vc_range")
 
 
 if __name__ == "__main__":
