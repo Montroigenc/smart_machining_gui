@@ -103,14 +103,15 @@ class Window(tk.Tk):
         if 'window_title' in kwargs:
             tk.Label(self, text=kwargs['window_title'], padx=5, pady=5, font='Helvetica 15 bold').pack(pady=15)
 
-        self.vc_data = dict()
+        self.target = kwargs['target'] if 'target' in kwargs else None
         self.manual_exit = False
         self.tools_data = []
         self.available_operations = kwargs['available_operations'] if 'available_operations' in kwargs else None
         self.general_parameters = kwargs['general_parameters'] if 'general_parameters' in kwargs else None
 
         self.result = dict()
-        self.pcs = dict()
+
+        self.AD_max = None
 
     def __call__(self, *args, **kwargs):
         self.mainloop()
@@ -216,7 +217,7 @@ class Window(tk.Tk):
                 # pcs.append(get_pc_from_machining_file(file_path))
 
                 if target == 'f min':
-                    h = self.compute_h(10 - row_idx)
+                    h = self.compute_h(10 - row_idx, 10 - row_idx)
                     Pc = 10 - row_idx
                     res['x'].append(h)
                     res['y'].append(Pc)
@@ -255,13 +256,11 @@ class Window(tk.Tk):
         return res
 
     def dynamic_table_validation(self, table):
-        target = str(table)[str(table).rfind('Détermination de ') + 17:].lower()
+        dynamic_table_values = self.compute_dynamic_table(table, self.target)
 
-        dynamic_table_values = self.compute_dynamic_table(table, target)
-
-        if target in ['Vc min', 'f min']:
+        if self.target in ['Vc min', 'f min']:
             self.show_graphic(dynamic_table_values)
-        elif target in ['AD max', 'Q max']:
+        elif self.target in ['AD max', 'Q max']:
             result = np.max(dynamic_table_values['y'])
 
         if validated:
@@ -291,8 +290,21 @@ class Window(tk.Tk):
                     dynamic_param_names = [param_name for param_name in kwargs['action_root'].children if (f'_{n}' in param_name and 'fichier de mesure' not in param_name and 'pc (w)' not in param_name)]
 
                     for dynamic_param_name in dynamic_param_names:
-                        # dynamic_param_name = f"{kwargs['action_root'].children['label_r0c1']['text'].lower()}_{n}"
-                        kwargs['action_root'].children[dynamic_param_name].configure(text=f'{dynamic_param_name}')
+                        if 'Statut' in dynamic_param_name:
+                            kwargs['action_root'].children[dynamic_param_name].configure(text="OK/NOK")
+                        else:
+                            kwargs['action_root'].children[dynamic_param_name].configure(text=f'{np.random.random()}')
+
+                    if self.target == 'AD max':
+                        AD = 1
+                        for dynamic_param_name in dynamic_param_names:
+                            AD *= float(kwargs['action_root'].children[dynamic_param_name]['text'])
+
+                        if self.AD_max is None:
+                            self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
+                        elif AD > self.AD_max:
+                            self.children['search_param'].configure(text=f'AD max = {AD:.4}')
+                            self.AD_max = AD
 
             elif action == "get_data":
                 if len(kwargs['action_root']) > 1:
@@ -307,7 +319,6 @@ class Window(tk.Tk):
 
             elif action == "quit" or action == "next":
                 root = kwargs['root'] if 'root' in kwargs else self
-                # root.destroy_window()
                 root.destroy()
 
     def append_date(self, root=None, row_idx=0):
@@ -487,29 +498,35 @@ def set_general_machining_characteristics(win):
     tk.Button(win, text=" Suivant ", command=lambda **kwargs: win.change_program_state(actions=["get_data", "next"], action_root=[frame]), pady=5).pack(pady=10)
 
 
-def set_operation_window(win, target):
-    if 'Vc min' in target:
+def get_operation_window_headers(target):
+    if target == 'Vc min' in target:
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Avance par dent fz (mm/tr)"]
         table2_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "Pc (W)"]
-    elif 'f min' in target:
+    elif target == 'f min':
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Vitesse de coupe Vc (m/min)"]
         table2_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Fichier de mesure", "Pc (W)"]
-    elif 'AD max' in target:
+    elif target == 'AD max':
         entries = ["Engagement axial init ap (mm)",
                    "Engagement radial init ae (mm)",
                    "Vitesse de coupe Vc (m/min)",
                    "Épaisseur de coupe h (mm)"]
         table2_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "Fichier de mesure", "Pc (W)", "Statut"]
-    elif 'Q max' in target:
+    elif target == 'Q max':
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Vitesse de coupe init Vc (m/min)",
                    "Épaisseur de coupe init h (mm)"]
         table2_headers = ["Mesure n°", "Épaisseur de coupe h (mm)", "Vitesse de coupe Vc (mm/tr)", "Fichier de mesure", "Pc (W)", "Statut"]
+
+    return entries, table2_headers
+
+
+def set_operation_window(win, target):
+    entries, table2_headers = get_operation_window_headers(target)
 
     # Set Vc input parameters table
     input_parameters_frame = tk.Frame(win, name="input_parameters", highlightthickness=2, highlightbackground="black")
@@ -533,6 +550,11 @@ def set_operation_window(win, target):
     dynamic_parameters_frame.pack(padx=15, pady=15)
     dynamic_parameters_frame.interior.pack(padx=20, pady=15)
 
+    # Additional search parameter
+    if 'max' in target:
+        search_param = f"{['AD max', 'Q max'][['AD max', 'Q max'].index(target)]}"
+        tk.Label(win, text=f"{search_param} = ", width=22, font='Helvetica 11 bold', name='search_param', borderwidth=2, relief="solid").pack(padx=15, pady=15)
+
     # Set buttons
     buttons_frame = tk.Frame(win, name="buttons")
     buttons_frame.pack(padx=15, pady=15)
@@ -540,11 +562,11 @@ def set_operation_window(win, target):
 
 
 def set_user_window(app_name, target, **kwargs):
-    win = Window(app_name, window_title=target, **kwargs)
+    win = Window(app_name, window_title=f'Détermination de {target}', target=target, **kwargs)
     if target == "Caractéristiques de l'usinage":
         set_general_machining_characteristics(win)
 
-    elif "Détermination" in target:
+    else:
         set_operation_window(win, target)
 
     win()

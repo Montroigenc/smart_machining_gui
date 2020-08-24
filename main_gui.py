@@ -36,17 +36,17 @@ class UserGUI():
         general_parameters = {'diameter': 3}
 
         #  Determination of Vc,min
-        vcmin_operation_parameters = set_user_window(self.app_name, "Détermination de Vc min", operation=operation)
+        vcmin_operation_parameters = set_user_window(self.app_name, "Vc min", operation=operation)
 
         # Determination of the range hmin – hmax
-        fmin_operation_parameters = set_user_window(self.app_name, "Détermination de f min", operation=operation, general_parameters=general_parameters)
+        fmin_operation_parameters = set_user_window(self.app_name, "f min", operation=operation, general_parameters=general_parameters)
 
         ''' Determination of limiting data '''
         #  high limit on cutting section (AD,max)
-        admax_operation_parameters = set_user_window(self.app_name, "Détermination de AD max", operation=operation)
+        admax_operation_parameters = set_user_window(self.app_name, "AD max", operation=operation)
 
         # high limit on chip removal rate (Qmax)
-        qmax_operation_parameters = set_user_window(self.app_name, "Détermination de Q max", operation=operation)
+        qmax_operation_parameters = set_user_window(self.app_name, "Q max", operation=operation)
 
         # vc_range = set_user_input_parameters_window("vc_range", "Définition de l'intervalle de mesure en Vc", self.tools_data, "vc_range")
 
