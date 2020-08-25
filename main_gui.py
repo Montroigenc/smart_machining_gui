@@ -1,18 +1,18 @@
-import tkinter as tk
-import tkinter.ttk as TTK
-from tkinter import messagebox, filedialog
-import cv2
-import PIL.Image, PIL.ImageTk
-import pyautogui
-import numpy as np
-import os
-import glob
-import ntpath
-import datetime
-import time
-import sys
-import traceback
-import shutil
+# import tkinter as tk
+# import tkinter.ttk as TTK
+# from tkinter import messagebox, filedialog
+# import cv2
+# import PIL.Image, PIL.ImageTk
+# import pyautogui
+# import numpy as np
+# import os
+# import glob
+# import ntpath
+# import datetime
+# import time
+# import sys
+# import traceback
+# import shutil
 
 from windows.windows import set_user_window
 
@@ -26,27 +26,27 @@ class UserGUI():
     def __call__(self):
         # get operation type
         # operation = set_trioption_window(self.app_name, "Choix du type d'opération", "Tournage", "Perçage", "Fraisage")
-        operation = "Fraisage"
+        # operation = "Fraisage"
 
         # set tools data from config file corresponding with previously selected operation
         # self.tools_data = load_tools_data(operation)
 
         # ask user to chose a tool from the predefined list in the config file
         # general_parameters = set_user_window(self.app_name, "Caractéristiques de l'usinage", available_operations=self.available_operations)
-        general_parameters = {'diameter': 3}
+        general_parameters = {'operation': 'Fraisage', 'tool': 'Outil1', 'diameter': 1, 'n_teeth': 9, 'user_name': 'werth', 'date': '25/août/2020', 'lubrication': 'etz', 'comments': 'etzj'}
 
         #  Determination of Vc,min
-        vcmin_operation_parameters = set_user_window(self.app_name, "Vc min", operation=operation)
+        # vcmin_operation_parameters = set_user_window(self.app_name, "Vc min", general_parameters=general_parameters)
 
         # Determination of the range hmin – hmax
-        fmin_operation_parameters = set_user_window(self.app_name, "f min", operation=operation, general_parameters=general_parameters)
+        # fmin_operation_parameters = set_user_window(self.app_name, "f min", general_parameters=general_parameters)
 
         ''' Determination of limiting data '''
         #  high limit on cutting section (AD,max)
-        admax_operation_parameters = set_user_window(self.app_name, "AD max", operation=operation)
+        # admax_operation_parameters = set_user_window(self.app_name, "AD max", general_parameters=general_parameters)
 
         # high limit on chip removal rate (Qmax)
-        qmax_operation_parameters = set_user_window(self.app_name, "Q max", operation=operation)
+        qmax_operation_parameters = set_user_window(self.app_name, "Q max", general_parameters=general_parameters)
 
         # vc_range = set_user_input_parameters_window("vc_range", "Définition de l'intervalle de mesure en Vc", self.tools_data, "vc_range")
 

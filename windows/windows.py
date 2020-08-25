@@ -13,6 +13,7 @@ from datetime import date
 # import traceback
 # import shutil
 import numpy as np
+import unidecode
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -112,6 +113,7 @@ class Window(tk.Tk):
         self.result = dict()
 
         self.AD_max = None
+        self.Q_max = None
 
     def __call__(self, *args, **kwargs):
         self.mainloop()
@@ -200,11 +202,34 @@ class Window(tk.Tk):
     def compute_h(self, ae, fz):
         d = self.general_parameters['diameter']
         if ae < d:
-            h = 2 * fz * np.square((ae / d) * (1 - ae / d))
+            return 2 * fz * np.square((ae / d) * (1 - ae / d))
         else:
-            h = fz
-            
-        return h
+            return fz
+
+    @staticmethod
+    def get_fz_from_h(d, h, ae):
+        if ae < d:
+            return h / 2 / np.square((ae / d) * (1 - ae / d))
+        else:
+            return h
+
+    def compute_Q(self, Vc, ae, ap, h):
+        d = self.general_parameters['diameter']
+        z = self.general_parameters['n_teeth']  # number of effective teeth
+        fz = self.get_fz_from_h(d, h, ae)
+        AD = ae * ap
+
+        N = 1000 * Vc / np.pi / d
+        Vf = N * fz * z
+
+        # AD, Vf, fz, Zu, d, n, Vc = 3, 2, 1, 2, 3, 5, 4
+        Q = AD * Vf / 1000
+        # or:
+        # Q = AD * fz * Zu * n / 1000
+        # or:
+        # Q = AD * fz * Zu * Vc / np.pi / d
+
+        return Q
 
     def compute_dynamic_table(self, table, target):
         res = {'x': [], 'y': [], 'statut': []}
@@ -302,9 +327,25 @@ class Window(tk.Tk):
 
                         if self.AD_max is None:
                             self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
-                        elif AD > self.AD_max:
-                            self.children['search_param'].configure(text=f'AD max = {AD:.4}')
                             self.AD_max = AD
+                        elif AD > self.AD_max:
+                            self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
+                            self.AD_max = AD
+
+                    elif self.target == 'Q max':
+                        Vc = float(kwargs['action_root'].children[f'vitesse de coupe vc (mm/tr)_{n}']['text'])
+
+                        ae = float(self.children['input_parameters'].children['engagement radial ae (mm)'].get())
+                        ap = float(self.children['input_parameters'].children['engagement axial ap (mm)'].get())
+                        h = float(self.children['input_parameters'].children["epaisseur de coupe init h (mm)"].get())
+
+                        Q = self.compute_Q(Vc, ae, ap, h)
+
+                        if self.Q_max is None:
+                            self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
+                        elif Q > self.Q_max:
+                            self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
+                            self.Q_max = Q
 
             elif action == "get_data":
                 if len(kwargs['action_root']) > 1:
@@ -422,7 +463,8 @@ class Window(tk.Tk):
 
         tk.Label(root, width=25, text=text + " :").grid(row=row, column=0)
 
-        ent_name = kwargs['ent_name'] if 'ent_name' in kwargs else f"entry_r{row}c1"
+        # ent_name = kwargs['ent_name'] if 'ent_name' in kwargs else f"entry_r{row}c1"
+        ent_name = f'{unidecode.unidecode(text.lower())}'
         tk.Entry(root, width=25, name=ent_name).grid(row=row, column=1)
 
     def set_label_row(self, headers, **kwargs):
@@ -443,7 +485,7 @@ class Window(tk.Tk):
         tk.Label(root, text=f"{n}").grid(row=row, column=0, pady=5, padx=5)
 
         for col_idx, key in enumerate(keys[1:]):
-            name = f'{key.lower()}_{row}'
+            name = f'{unidecode.unidecode(key.lower())}_{row}'
 
             if key == "Fichier de mesure":
                 btn = tk.Button(root, text="Parcourir", command=lambda **kwargs: self.change_program_state(actions=['select_file'], file=n, action_root=root), name=name)
