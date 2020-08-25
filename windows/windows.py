@@ -185,10 +185,16 @@ class Window(tk.Tk):
 
         # BUTTONS
         btns_frame = tk.Frame(pcs_win, name='buttons_frame')
-        get_data_btn = tk.Button(btns_frame, text="Enregistrer les données", command=lambda **kwargs: self.change_program_state(actions=["get_data"], action_root=[table_frame.interior]), padx=10, pady=5, font='Helvetica 11 bold')
-        next_btn = tk.Button(btns_frame, text="Valider", command=lambda **kwargs: self.change_program_state(actions=["next"], action_root=[table_frame.interior]), padx=10, pady=5, font='Helvetica 11 bold')
+        # get_data_btn = tk.Button(btns_frame, text="Enregistrer les données", command=lambda **kwargs: self.change_program_state(actions=["get_data"], action_root=[table_frame.interior]), padx=10, pady=5, font='Helvetica 11 bold')
+        # next_btn = tk.Button(btns_frame, text="Valider", command=lambda **kwargs: self.change_program_state(actions=["next"], action_root=[table_frame.interior]), padx=10, pady=5, font='Helvetica 11 bold')
 
-        get_data_btn.grid(row=1, column=0, padx=10, pady=10)
+        return_btn = tk.Button(btns_frame, text="Revenir à la fenêtre précédente", command=lambda **kwargs: self.change_program_state(actions=["quit"], action_root=[table_frame.interior]), padx=10, pady=5, font='Helvetica 11 bold')
+        next_btn = tk.Button(btns_frame, text="Valider", command=lambda **kwargs: self.change_program_state(actions=["next"], root=pcs_win), padx=10, pady=5, font='Helvetica 11 bold')
+
+        # next_btn = tk.Button(btns_frame, text="Valider", padx=10, pady=5, font='Helvetica 11 bold')
+        # next_btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['next'], root=pcs_win))
+
+        return_btn.grid(row=1, column=0, padx=10, pady=10)
         next_btn.grid(row=1, column=1, padx=10, pady=10)
 
         btns_frame.pack(padx=10, pady=10)
@@ -285,78 +291,129 @@ class Window(tk.Tk):
 
         if self.target in ['Vc min', 'f min']:
             self.show_graphic(dynamic_table_values)
+            return dynamic_table_values['best_range_min']
         elif self.target in ['AD max', 'Q max']:
-            result = np.max(dynamic_table_values['y'])
+            return np.max(dynamic_table_values['y'])
 
-        if validated:
-            target_parameter = str(table)[str(table).rfind('Détermination de ') + 17:].lower()
-            self.pcs[target_parameter] = pcs
+        # if validated:
+        #     target_parameter = str(table)[str(table).rfind('Détermination de ') + 17:].lower()
+        #     self.pcs[target_parameter] = pcs
+
+    def update_ADQ_max(self, dynamic_param_names, n, **kwargs):
+        if self.target == 'AD max':
+            AD = 1
+            for dynamic_param_name in dynamic_param_names:
+                AD *= float(kwargs['action_root'].children[dynamic_param_name]['text'])
+
+            if self.AD_max is None:
+                self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
+                self.AD_max = AD
+            elif AD > self.AD_max:
+                self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
+                self.AD_max = AD
+
+        elif self.target == 'Q max':
+            Vc = float(kwargs['action_root'].children[f'vitesse de coupe vc (mm/tr)_{n}']['text'])
+
+            ae = float(self.children['input_parameters'].children['engagement radial ae (mm)'].get())
+            ap = float(self.children['input_parameters'].children['engagement axial ap (mm)'].get())
+            h = float(self.children['input_parameters'].children["epaisseur de coupe init h (mm)"].get())
+
+            Q = self.compute_Q(Vc, ae, ap, h)
+
+            if self.Q_max is None:
+                self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
+            elif Q > self.Q_max:
+                self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
+                self.Q_max = Q
+
+    def update_dynamic_row(self, filename, btn, **kwargs):
+        n = [child.grid_info()["row"] for child in self.children['!verticalscrolledframe'].interior.grid_slaves() if child is btn][0] - 1
+
+        # Check if there was already a selected file
+        already_used = btn['text'] != 'Parcourir'
+
+        # Set green and text filename in button
+        btn.configure(fg="green", text=filename)
+
+        # Set Pc (W)
+        # pc = get_pc_from_machining_file(filename)
+        pc = np.random.random()
+        self.children['!verticalscrolledframe'].interior.children[f"pc (w)_{n}"].configure(text=pc)
+
+        # Set dynamic parameters columns values
+        dynamic_param_names = [param_name for param_name in self.children['!verticalscrolledframe'].interior.children if (f'_{n}' in param_name and 'fichier de mesure' not in param_name and 'pc (w)' not in param_name)]
+
+        for dynamic_param_name in dynamic_param_names:
+            if 'statut' in dynamic_param_name:
+                self.children['!verticalscrolledframe'].interior.children[dynamic_param_name].configure(text="OK/NOK")
+            elif dynamic_param_name not in [f'mesure ndeg_{n}', f'del_{n}']:
+                self.children['!verticalscrolledframe'].interior.children[dynamic_param_name].configure(text=f'{np.random.random()}')
+
+        self.update_ADQ_max(dynamic_param_names, n, **kwargs)
+
+        return already_used
 
     def change_program_state(self, *args, **kwargs):
         for action in kwargs['actions']:
-            if action == 'add_dynamic_row':
-                dynamic_parameters = [i for i in kwargs['action_root'] if 'dynamic' in str(i)][0]
-                self.append_dynamic_row(kwargs['keys'], root=dynamic_parameters)
-
-            elif action == 'select_file':
+            if action == 'select_file':
                 filename = tk.filedialog.askopenfilename(initialdir="/", title="Sélectionner un fichier")
                 if filename != "":
-                    n = kwargs['file'] + 1
+                    already_used = self.update_dynamic_row(filename, args[0].widget, **kwargs)
 
-                    # Set green and text filename in button
-                    kwargs['action_root'].children[f"fichier de mesure_{n}"].configure(fg="green", text=filename)
-
-                    # Set Pc (W)
-                    # pc = get_pc_from_machining_file(filename)
-                    pc = np.random.random()
-                    kwargs['action_root'].children[f"pc (w)_{n}"].configure(text=pc)
-
-                    # Set dynamic parameters columns values
-                    dynamic_param_names = [param_name for param_name in kwargs['action_root'].children if (f'_{n}' in param_name and 'fichier de mesure' not in param_name and 'pc (w)' not in param_name)]
-
-                    for dynamic_param_name in dynamic_param_names:
-                        if 'Statut' in dynamic_param_name:
-                            kwargs['action_root'].children[dynamic_param_name].configure(text="OK/NOK")
-                        else:
-                            kwargs['action_root'].children[dynamic_param_name].configure(text=f'{np.random.random()}')
-
-                    if self.target == 'AD max':
-                        AD = 1
-                        for dynamic_param_name in dynamic_param_names:
-                            AD *= float(kwargs['action_root'].children[dynamic_param_name]['text'])
-
-                        if self.AD_max is None:
-                            self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
-                            self.AD_max = AD
-                        elif AD > self.AD_max:
-                            self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
-                            self.AD_max = AD
-
-                    elif self.target == 'Q max':
-                        Vc = float(kwargs['action_root'].children[f'vitesse de coupe vc (mm/tr)_{n}']['text'])
-
-                        ae = float(self.children['input_parameters'].children['engagement radial ae (mm)'].get())
-                        ap = float(self.children['input_parameters'].children['engagement axial ap (mm)'].get())
-                        h = float(self.children['input_parameters'].children["epaisseur de coupe init h (mm)"].get())
-
-                        Q = self.compute_Q(Vc, ae, ap, h)
-
-                        if self.Q_max is None:
-                            self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
-                        elif Q > self.Q_max:
-                            self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
-                            self.Q_max = Q
+                    if not already_used:
+                        self.append_dynamic_row(root=self.children['!verticalscrolledframe'].interior)
 
             elif action == "get_data":
-                if len(kwargs['action_root']) > 1:
-                    for table in kwargs['action_root']:
-                        self.result.update(self.get_data(table.children.items()))
+                if self.target == "Caractéristiques de l'usinage":
+                    self.result = self.get_data(self.children['general_machining_characteristics'].children.items())
                 else:
-                    self.result = self.get_data(kwargs['action_root'][0].children.items())
+                    for table in [self.children['input_parameters'], self.children['!verticalscrolledframe'].interior]:
+                        self.result.update(self.get_data(table.children.items()))
 
             elif action == "compute_pc":
                 dynamic_parameters = [i for i in kwargs['action_root'] if 'dynamic' in str(i)][0]
-                self.dynamic_table_validation(dynamic_parameters)
+                self.result['computation_results'] = self.dynamic_table_validation(dynamic_parameters)
+                x = 0
+
+            elif action == "delete_line":
+                # n = int(args[0].widget._name.split('_')[-1])
+                n = [child.grid_info()["row"] for child in self.children['!verticalscrolledframe'].interior.grid_slaves() if child is args[0].widget][0]
+
+                widgets2delete = [child for child in self.children['!verticalscrolledframe'].interior.grid_slaves() if child.grid_info()["row"] == n]
+
+                for child in widgets2delete:
+                    child.destroy()
+
+                x = 0
+                x = 1
+
+                for child in self.children['!verticalscrolledframe'].interior.grid_slaves()[::-1]:
+                    # if int(child._name.split('_')[1]) >= n:
+                    if child.grid_info()["row"] >= n:
+                        # grid_info = child.grid_info()
+                        # grid_info["row"] -= 1
+                        # child.grid(grid_info)
+
+                        # child._name = '_'.join([child._name.split('_')[0], str(child.grid_info()["row"])])
+
+                        if int(child.grid_info()["column"]) == 0:
+                            child['text'] = str(child.grid_info()["row"] - 2)
+
+                # Append new line if needed
+                new_line_not_needed = False
+                for child in self.children['!verticalscrolledframe'].interior.grid_slaves():
+                    if 'fichier de mesure_' in str(child):
+                        new_line_not_needed = child['text'] == 'Parcourir'
+                        if new_line_not_needed:
+                            break
+
+                if not new_line_not_needed:
+                    self.append_dynamic_row(root=self.children['!verticalscrolledframe'].interior)
+
+                x = 0
+                x = 1
+                x = 2
 
             elif action == "quit" or action == "next":
                 root = kwargs['root'] if 'root' in kwargs else self
@@ -450,12 +507,12 @@ class Window(tk.Tk):
         root_table = kwargs['root_table'] if 'root_table' in kwargs else None
 
         btn_next = tk.Button(root, text="Valider", command=lambda **kwargs: self.change_program_state(actions=["get_data", "next"], action_root=root_table), padx=10, pady=5, font='Helvetica 11 bold')
-        btn_calculer = tk.Button(root, text="Calculer Pc", command=lambda **kwargs: self.change_program_state(actions=["compute_pc"], action_root=root_table), padx=10, pady=5, font='Helvetica 11 bold')
-        btn_add = tk.Button(root, text="Ajouter une autre ligne", command=lambda **kwargs: self.change_program_state(keys=keys, actions=["add_dynamic_row"], action_root=root_table), padx=10, pady=5, font='Helvetica 11 bold')
+        btn_calculer = tk.Button(root, text="Afficher curve Wc", command=lambda **kwargs: self.change_program_state(actions=["compute_pc"], action_root=root_table), padx=10, pady=5, font='Helvetica 11 bold')
+        # btn_add = tk.Button(root, text="Ajouter une autre ligne", command=lambda **kwargs: self.change_program_state(keys=keys, actions=["add_dynamic_row"], action_root=root_table), padx=10, pady=5, font='Helvetica 11 bold')
 
         btn_next.grid(row=0, column=0, padx=20, pady=5)
         btn_calculer.grid(row=0, column=2, padx=20, pady=5)
-        btn_add.grid(row=0, column=4, padx=20, pady=5)
+        # btn_add.grid(row=0, column=4, padx=20, pady=5)
 
     def append_entry_row(self, text, **kwargs):
         root = kwargs['root'] if 'root' in kwargs else self
@@ -463,7 +520,6 @@ class Window(tk.Tk):
 
         tk.Label(root, width=25, text=text + " :").grid(row=row, column=0)
 
-        # ent_name = kwargs['ent_name'] if 'ent_name' in kwargs else f"entry_r{row}c1"
         ent_name = f'{unidecode.unidecode(text.lower())}'
         tk.Entry(root, width=25, name=ent_name).grid(row=row, column=1)
 
@@ -478,18 +534,33 @@ class Window(tk.Tk):
             else:
                 tk.Label(root, text=h, width=22, name=name).grid(row=row, column=i)
 
-    def append_dynamic_row(self, keys, **kwargs):
+    def append_dynamic_row(self, **kwargs):
         root = kwargs['root'] if 'root' in kwargs else self
-        n = len(root.children) // len(keys) - 1
-        row = n + 1
-        tk.Label(root, text=f"{n}").grid(row=row, column=0, pady=5, padx=5)
+        keys = [root.children[l]['text'] for l in root.children if '_r0c' in l]
+
+        # n = len(root.children) // len(keys) - 1
+        # row = n + 1
+        filled_rows = [child.grid_info()["row"] for child in self.children['!verticalscrolledframe'].interior.grid_slaves()]
+        row = max(filled_rows) + 1
+
+        tk.Label(root, text=f"{row - 1}", name=f'{unidecode.unidecode(keys[0].lower())}_{row - 1}').grid(row=row, column=0, pady=5, padx=5)
 
         for col_idx, key in enumerate(keys[1:]):
-            name = f'{unidecode.unidecode(key.lower())}_{row}'
+            name = f'{unidecode.unidecode(key.lower())}_{row - 1}'
 
             if key == "Fichier de mesure":
-                btn = tk.Button(root, text="Parcourir", command=lambda **kwargs: self.change_program_state(actions=['select_file'], file=n, action_root=root), name=name)
+                btn = tk.Button(root, text="Parcourir", name=name)
+                btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['select_file']))
                 btn.grid(row=row, column=col_idx + 1, pady=5, padx=5)
+
+            elif key == "Vitesse de coupe Vc (m/min)":
+                tk.Entry(root, width=25, name=name).grid(row=row, column=col_idx + 1, pady=5, padx=5)
+
+            elif key == "":
+                del_btn = tk.Button(root, text="Supprimer ligne", name=f'del{name}')
+                del_btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['delete_line']))
+                del_btn.grid(row=row, column=col_idx + 1, pady=5, padx=5)
+
             else:
                 tk.Label(root, text='...', name=name).grid(row=row, column=col_idx + 1, pady=5, padx=5)
 
@@ -545,24 +616,24 @@ def get_operation_window_headers(target):
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Avance par dent fz (mm/tr)"]
-        table2_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "Pc (W)"]
+        table2_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "Pc (W)", "Wc (W)"]
     elif target == 'f min':
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Vitesse de coupe Vc (m/min)"]
-        table2_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Fichier de mesure", "Pc (W)"]
+        table2_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Fichier de mesure", "Pc (W)", "Wc (W)"]
     elif target == 'AD max':
         entries = ["Engagement axial init ap (mm)",
                    "Engagement radial init ae (mm)",
                    "Vitesse de coupe Vc (m/min)",
                    "Épaisseur de coupe h (mm)"]
-        table2_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "Fichier de mesure", "Pc (W)", "Statut"]
+        table2_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "Statut"]
     elif target == 'Q max':
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Vitesse de coupe init Vc (m/min)",
                    "Épaisseur de coupe init h (mm)"]
-        table2_headers = ["Mesure n°", "Épaisseur de coupe h (mm)", "Vitesse de coupe Vc (mm/tr)", "Fichier de mesure", "Pc (W)", "Statut"]
+        table2_headers = ["Mesure n°", "Épaisseur de coupe h (mm)", "Vitesse de coupe Vc (mm/tr)", "Fichier de mesure", "Pc (W)", "Wc (W)", "Statut"]
 
     return entries, table2_headers
 
@@ -583,11 +654,11 @@ def set_operation_window(win, target):
     # Set Vc input parameters table
     dynamic_parameters_frame = VerticalScrolledFrame(win, interior_name=f'dynamic_parameters_{target}')
 
-    # Set headers
-    win.set_label_row(table2_headers, root=dynamic_parameters_frame.interior, header=True)
+    # Set dynamic table headers
+    win.set_label_row(table2_headers + [""], root=dynamic_parameters_frame.interior, header=True)
 
-    # Set first row
-    win.append_dynamic_row(table2_headers, root=dynamic_parameters_frame.interior)
+    # Set dynamic table first row
+    win.append_dynamic_row(root=dynamic_parameters_frame.interior)
 
     dynamic_parameters_frame.pack(padx=15, pady=15)
     dynamic_parameters_frame.interior.pack(padx=20, pady=15)

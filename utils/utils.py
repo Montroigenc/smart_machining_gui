@@ -28,5 +28,24 @@ def load_tools_data(operation):
     return tools_dict
 
 
+def load_config(filePath):
+    if os.path.isfile(filePath):
+        f = open(filePath, "r", encoding='utf-8')
+        data = f.read().replace("\ufeff", "")
+        data = data.split("\n")
+
+        config_params = dict()
+        for l in data:
+            l = l.split(" = ")
+            config_params["{}".format(l[0])] = l[1]
+
+        print("{} config file loaded".format(filePath))
+        return config_params
+    else:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("Error", "Le fichier de configuration n'est pas présent dans {}".format(filePath))
+
+
 if __name__ == "__main__":
     load_tools_data("Fraisage")
