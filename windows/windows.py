@@ -17,13 +17,14 @@ import unidecode
 import random
 
 import matplotlib
+
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
 from utils.utils import load_tools_data
 from data_manager.data_manager import get_pc_from_machining_file
-from windows.formulas import compute_Q
+from windows.formulas import compute_Q, compute_Wc, compute_h, compute_N, compute_Vf
 
 
 class VerticalScrolledFrame(tk.Frame):
@@ -117,9 +118,12 @@ class Window(tk.Tk):
 
         self.AD_max = None
         self.Q_max = None
+        self.max_params = {'AD': -1, 'Q': -1}
 
         self.action = None
         self.debug = kwargs['debug'] if 'debug' in kwargs else False
+
+        # self.resizable(0, 0)
 
     def set_win_title(self, window_title):
         tk.Label(self, text=window_title, padx=5, pady=5, font='Helvetica 15 bold').pack(pady=15)
@@ -171,42 +175,51 @@ class Window(tk.Tk):
         return res
 
     def update_ADQ_max(self, dynamic_widgets, n, **kwargs):
-        if self.target == 'AD max':
-            AD = 1
-            for dynamic_widget in dynamic_widgets:
-                if 'engagement' in str(dynamic_widget):
-                    # AD *= dynamic_widget['text']
-                    AD *= float(dynamic_widget.get())
-
-            if self.AD_max is None:
-                self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
-                self.AD_max = AD
-            elif AD > self.AD_max:
-                self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
-                self.AD_max = AD
-
-        elif self.target == 'Q max':
+        if self.target in ['AD max', 'Q max']:
             root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
-            Vc = float(root.children[f'vitesse de coupe vc (m/min)_{n}'].get())
+            values = [c for c in root.children if f'{self.target.split()[0].lower()}_' in c]
+            ok_values = [c for c in values if root.children[f"statut_{c.split('_')[-1]}"]['text'] == 'OK']
+            self.max_params[self.target] = max(ok_values)
 
-            ae = float(self.result['input_parameters']['engagement radial ae (mm)'])
-            ap = float(self.result['input_parameters']['engagement axial ap (mm)'])
-            h = float(root.children[f"epaisseur de coupe h (mm)_{n}"].get())
-            d = float(self.general_parameters['diameter'])
-            z = float(self.general_parameters['n_teeth'])
-
-            Q = compute_Q(Vc, ae, ap, h, d, z)
-
-            if self.Q_max is None:
-                self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
-            elif Q > self.Q_max:
-                self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
-                self.Q_max = Q
+        #     root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
+        #     values = [c for c in root.children if f'{self.target.split()[0].lower()}_' in c]
+        #     ok_values = [c for c in values if root.children[f"statut_{c.split('_')[-1]}"]['text'] == 'OK']
+        #     self.max_params[self.target] = max(ok_values)
+        #     AD = 1
+        #     for dynamic_widget in dynamic_widgets:
+        #         if 'engagement' in str(dynamic_widget):
+        #             # AD *= dynamic_widget['text']
+        #             AD *= float(dynamic_widget.get())
+        #
+        #     if self.AD_max is None:
+        #         self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
+        #         self.AD_max = AD
+        #     elif AD > self.AD_max:
+        #         self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
+        #         self.AD_max = AD
+        #
+        # elif self.target == 'Q max':
+        #     root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
+        #     Vc = float(root.children[f'vitesse de coupe vc (m/min)_{n}'].get())
+        #
+        #     ae = float(self.result['input_parameters']['engagement radial ae (mm)'])
+        #     ap = float(self.result['input_parameters']['engagement axial ap (mm)'])
+        #     h = float(root.children[f"epaisseur de coupe h (mm)_{n}"].get())
+        #     d = float(self.general_parameters['diameter'])
+        #     z = float(self.general_parameters['n_teeth'])
+        #
+        #     Q = compute_Q(Vc, ae, ap, h, d, z)
+        #
+        #     if self.Q_max is None:
+        #         self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
+        #     elif Q > self.Q_max:
+        #         self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
+        #         self.Q_max = Q
 
     def update_dynamic_row(self, filename, btn, **kwargs):
         root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
 
-        n = [child.grid_info()["row"] for child in root.grid_slaves() if child is btn][0] - 1
+        row = [child.grid_info()["row"] for child in root.grid_slaves() if child is btn][0] - 1
 
         # Check if there was already a selected file
         already_used = btn['text'] != 'Parcourir'
@@ -216,31 +229,47 @@ class Window(tk.Tk):
 
         # Set Pc (W)
         # pc = get_pc_from_machining_file(filename)
-        pc = np.random.random()
-        root.children[f"pc (w)_{n}"].configure(text=pc)
+        Pc = np.random.random()
+        root.children[f"pc (w)_{row}"].configure(text=Pc)
 
-        # Set dynamic parameters columns values
-        # dynamic_param_names = [param_name for param_name in root.children if (f'_{n}' in param_name and 'fichier de mesure' not in param_name and 'pc (w)' not in param_name)]
-        #
-        # for dynamic_param_name in dynamic_param_names:
-        #     if 'statut' in dynamic_param_name:
-        #         root.children[dynamic_param_name].configure(text="OK/NOK")
-        #     elif dynamic_param_name not in [f'mesure ndeg_{n}', f'del_{n}']:
-        #         root.children[dynamic_param_name].configure(text=f'{np.random.random()}')
+        widgets = [child for child in root.grid_slaves() if child.grid_info()['row'] > 0 and child.grid_info()['column'] > 0]
 
-        dynamic_params = [child for child in root.grid_slaves() if child.grid_info()['row'] > 0 and child.grid_info()['column'] > 0]
+        d = self.general_parameters['diameter']
+        z = self.general_parameters['n_teeth']
 
-        for dynamic_param in dynamic_params:
-            if 'Label' in str(type(dynamic_param)):
-                if 'statut' in dynamic_param._name:
-                    dynamic_param.configure(text="OK/NOK")
+        ap = float(self.result['input_parameters']['engagement axial ap (mm)']) if 'engagement axial ap (mm)' in self.result['input_parameters'].keys() else float(root.children[f"engagement axial ap (mm)_{row}"].get())
+        ae = float(self.result['input_parameters']['engagement radial ae (mm)']) if 'engagement radial ae (mm)' in self.result['input_parameters'].keys() else float(root.children[f"engagement radial ae (mm)_{row}"].get())
+
+        Vc = float(self.result['input_parameters']['vitesse de coupe vc (m/min)']) if 'vitesse de coupe vc (m/min)' in self.result['input_parameters'].keys() else float(root.children[f"vitesse de coupe vc (m/min)_{row}"].get())
+
+        fz = float(self.result['input_parameters']['avance par dent fz (mm/tr)']) if 'avance par dent fz (mm/tr)' in self.result['input_parameters'].keys() else float(root.children[f"avance par dent fz (mm/tr)_{row}"].get())
+
+        for widget in widgets:
+            widget_name = str(widget).split(".")[-1]
+            if 'Wc' in widget_name:
+                compute_Wc(d, Pc, ap, ae, z, fz, Vc)
+
+            elif 'N' in widget_name:
+                compute_N(Vc, d)
+
+            elif 'Vf' in widget_name:
+                N = float(self.result['input_parameters']['Vitesse de broche N']) if 'Vitesse de broche N' in self.result['input_parameters'].keys() else float(root.children[f"Vitesse de broche N_{row}"].get())
+                compute_Vf(N, fz, z)
+
+            elif 'h (mm)' in widget_name:
+                compute_h(ae, fz, d)
+
+            elif 'Label' in str(type(widget)):
+                if 'statut' in widget_name:
+                    widget.configure(text="OK")
                 else:
-                    dynamic_param.configure(text=f'{np.random.random()}')
-            elif 'Entry' in str(type(dynamic_param)):
-                dynamic_param.delete(0, tk.END)
-                dynamic_param.insert(0, f'{np.random.random()}')
+                    widget.configure(text=f'{random.randint(0, 10)}')
 
-        self.update_ADQ_max(dynamic_params, n, **kwargs)
+            elif 'Entry' in str(type(widget)):
+                widget.delete(0, tk.END)
+                widget.insert(0, f'{random.randint(0, 10)}')
+
+        self.update_ADQ_max(widgets, row, **kwargs)
 
         return already_used
 
@@ -426,7 +455,7 @@ class Window(tk.Tk):
         tk.Label(root, width=25, text=f"{text} :").grid(row=row, column=0)
 
         ent_name = kwargs['ent_name'] if 'ent_name' in kwargs else f'{unidecode.unidecode(text.lower())}'
-        ent = tk.Entry(root, width=25, name=ent_name)
+        ent = tk.Entry(root, width=25, name=ent_name, justify='center')
 
         if self.debug:
             ent.insert(0, f'{random.randrange(10)}')
@@ -440,7 +469,8 @@ class Window(tk.Tk):
         for i, h in enumerate(headers):
             name = kwargs['names'][i] if 'names' in kwargs else f"label_r{row}c{i}"
             if 'header' in kwargs:
-                tk.Label(root, text=h, width=22, font='Helvetica 11 bold', bg='gray', name=name).grid(row=row, column=i)
+                # tk.Label(root, text=h, width=22, font='Helvetica 11 bold', bg='gray', name=name).grid(row=row, column=i)
+                tk.Label(root, text=h, font='Helvetica 11 bold', bg='gray', name=name).grid(row=row, column=i, sticky=tk.N+tk.S+tk.E+tk.W)
             else:
                 tk.Label(root, text=h, width=22, name=name).grid(row=row, column=i)
 
@@ -450,36 +480,34 @@ class Window(tk.Tk):
 
         row = max([child.grid_info()["row"] for child in root.grid_slaves()]) + 1
 
-        tk.Label(root, text=f"{row - 1}", name=f'{unidecode.unidecode(keys[0].lower())}_{row - 1}').grid(row=row, column=0, pady=5, padx=5)
+        # Set row index
+        tk.Label(root, text=f"{row - 1}", name=f'{unidecode.unidecode(keys[0].lower())}_{row - 1}').grid(row=row, column=0, pady=5, padx=0)
 
-        before_file_btn = True
         for col_idx, key in enumerate(keys[1:]):
             name = f'{unidecode.unidecode(key.lower())}_{row - 1}'
 
             if key == "Fichier de mesure":
                 btn = tk.Button(root, text="Parcourir", name=name)
                 btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['select_file']))
-                btn.grid(row=row, column=col_idx + 1, pady=5, padx=5)
+                btn.grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
-                before_file_btn = False
-
-            elif before_file_btn:
-                ent = tk.Entry(root, width=25, name=name)
+            elif key in ['Engagement axial ap (mm)', 'Engagement radial ae (mm)', "Vitesse de coupe Vc (m/min)", "Avance par dent fz (mm/tr)"]:
+                ent = tk.Entry(root, width=25, name=name, justify='center')
                 if self.debug:
                     ent.insert(0, f'{random.randrange(10)}')
 
-                ent.grid(row=row, column=col_idx + 1, pady=5, padx=5)
+                ent.grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
             elif key == "":
                 del_btn = tk.Button(root, text="Supprimer ligne", name=f'del{name}')
                 del_btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['delete_line']))
-                del_btn.grid(row=row, column=col_idx + 1, pady=5, padx=5)
+                del_btn.grid(row=row, column=col_idx + 1, pady=5, padx=40)
 
             else:
-                tk.Label(root, text='...', name=name).grid(row=row, column=col_idx + 1, pady=5, padx=5)
+                tk.Label(root, text='...', name=name).grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
         if self.debug:
-            self.update_dynamic_row("dummy", btn, **kwargs)
+            self.update_dynamic_row("dummy_file", btn, **kwargs)
 
     def user_exit(self):
         selection = tk.messagebox.askquestion("quitter l'application", "Voulez-vous vraiment quitter l'application?", icon='warning')

@@ -74,20 +74,24 @@ def get_operation_window_headers(target):
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Avance par dent fz (mm/tr)"]
-        dynamic_table_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "N", "Vf", "Pc (W)", "Wc (W)"]
+        dynamic_table_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Vitesse de broche N", "Vitesse d'avance Vf (m/min)", "Fichier de mesure", "Pc (W)", "Wc (W)"]
     elif target == 'f min':
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Vitesse de coupe Vc (m/min)"]
-        dynamic_table_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Fichier de mesure", "N", "Vf", "Pc (W)", "Wc (W)"]
+        dynamic_table_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Vitesse de broche N", "Vitesse d'avance Vf (m/min)", "Fichier de mesure", "Pc (W)", "Wc (W)"]
     elif target == 'AD max':
         entries = ["Vitesse de coupe Vc (m/min)",
-                   "Avance par dent fz (mm/tr)"]
-        dynamic_table_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "N", "Vf", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "AD", "Statut"]
+                   "Avance par dent fz (mm/tr)",
+                   "Vitesse de broche N",
+                   "Vitesse d'avance Vf (m/min)"]
+        # dynamic_table_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "N", "Vf", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "AD", "Statut"]
+
+        dynamic_table_headers = ["Mesure n°", "Engagement axial ap (mm)", "Engagement radial ae (mm)", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Énergie spécifique de coupe Wc (W)", "Section de coupe AD", "Statut"]
     elif target == 'Q max':
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)"]
-        dynamic_table_headers = ["Mesure n°", "Épaisseur de coupe h (mm)", "Vitesse de coupe Vc (m/min)", "N", "Vf", "fz", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "Q", "Statut"]
+        dynamic_table_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Vitesse de broche N", "Vitesse d'avance Vf (m/min)", "Avance par dent fz (mm/tr)", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "Débit de copeaux Q", "Statut"]
 
     return entries, dynamic_table_headers
 

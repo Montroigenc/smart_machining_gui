@@ -34,8 +34,8 @@ def compute_dynamic_table(target, win):
                     # Pc = 10 - row_idx
                     # ap, ae = 2, 1
                     Pc = float(table_params[f"pc (w)_{row_idx}"])
-                    ap = float(table_params[f"engagement axial ap(mm)_{row_idx}"])
-                    ae = float(table_params[f"engagement radial ae(mm)_{row_idx}"])
+                    ap = float(table_params[f"engagement axial ap (mm)_{row_idx}"])
+                    ae = float(table_params[f"engagement radial ae (mm)_{row_idx}"])
                     AD = ap * ae
                     # statut = 'OK'
 
@@ -51,7 +51,7 @@ def compute_dynamic_table(target, win):
                     ae = float(win.result['input_parameters']['engagement radial ae (mm)'])
                     AD = ap * ae
 
-                    Zu = float(win.general_parameters['n_teeth'])
+                    z = float(win.general_parameters['n_teeth'])
                     d = float(win.general_parameters['diameter'])
                     Vc = float(table_params[f"vitesse de coupe vc (m/min)_{row_idx}"])
 
@@ -63,7 +63,9 @@ def compute_dynamic_table(target, win):
                     # or:
                     # Q = AD * fz * Zu * n / 1000
                     # or:
-                    Q = AD * fz * Zu * Vc / np.pi / d
+                    # Q = AD * fz * Zu * Vc / np.pi / d
+
+                    Q = compute_Q(Vc, ae, ap, h, d, z)
 
                     # Pc = 10 - row_idx
                     Pc = table_params[f"pc (w)_{row_idx}"]
@@ -104,20 +106,38 @@ def compute_h(ae, fz, d):
         return fz
 
 
-def compute_Q(Vc, ae, ap, h, d, z):
-    # d = self.general_parameters['diameter']
-    # z = self.general_parameters['n_teeth']  # number of effective teeth
-    fz = get_fz_from_h(d, h, ae)
-    AD = ae * ap
+# def compute_Q(Vc, ae, ap, h, d, z):
+def compute_Q(*args):
+    if len(args) == 2:
+        AD, Vf = args
+        return AD * Vf / 1000
+    else:
+        Vc, ae, ap, h, d, z = args
+        # d = self.general_parameters['diameter']
+        # z = self.general_parameters['n_teeth']  # number of effective teeth
+        fz = get_fz_from_h(d, h, ae)
+        AD = ae * ap
 
-    N = 1000 * Vc / np.pi / d
-    Vf = N * fz * z
+        N = compute_N(Vc, d)
+        Vf = compute_Vf(N, fz, z)
 
-    # AD, Vf, fz, Zu, d, n, Vc = 3, 2, 1, 2, 3, 5, 4
-    Q = AD * Vf / 1000
-    # or:
-    # Q = AD * fz * Zu * n / 1000
-    # or:
-    # Q = AD * fz * Zu * Vc / np.pi / d
+        # AD, Vf, fz, Zu, d, n, Vc = 3, 2, 1, 2, 3, 5, 4
+        Q = AD * Vf / 1000
+        # or:
+        # Q = AD * fz * Zu * n / 1000
+        # or:
+        # Q = AD * fz * Zu * Vc / np.pi / d
 
-    return Q
+        return Q
+
+
+def compute_N(Vc, d):
+    return 1000 * Vc / np.pi / d
+
+
+def compute_Vf(N, fz, z):
+    return N * fz * z
+
+
+def compute_Wc(d, Pc, ap, ae, z, fz, Vc):
+    return np.pi * d * Pc / ap / ae / z / fz / Vc
