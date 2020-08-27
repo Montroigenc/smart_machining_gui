@@ -177,49 +177,20 @@ class Window(tk.Tk):
     def update_ADQ_max(self, dynamic_widgets, n, **kwargs):
         if self.target in ['AD max', 'Q max']:
             root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
-            values = [c for c in root.children if f'{self.target.split()[0].lower()}_' in c]
-            ok_values = [c for c in values if root.children[f"statut_{c.split('_')[-1]}"]['text'] == 'OK']
-            self.max_params[self.target] = max(ok_values)
 
-        #     root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
-        #     values = [c for c in root.children if f'{self.target.split()[0].lower()}_' in c]
-        #     ok_values = [c for c in values if root.children[f"statut_{c.split('_')[-1]}"]['text'] == 'OK']
-        #     self.max_params[self.target] = max(ok_values)
-        #     AD = 1
-        #     for dynamic_widget in dynamic_widgets:
-        #         if 'engagement' in str(dynamic_widget):
-        #             # AD *= dynamic_widget['text']
-        #             AD *= float(dynamic_widget.get())
-        #
-        #     if self.AD_max is None:
-        #         self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
-        #         self.AD_max = AD
-        #     elif AD > self.AD_max:
-        #         self.children['search_param'].configure(text=f'AD max = {AD:.4f}')
-        #         self.AD_max = AD
-        #
-        # elif self.target == 'Q max':
-        #     root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
-        #     Vc = float(root.children[f'vitesse de coupe vc (m/min)_{n}'].get())
-        #
-        #     ae = float(self.result['input_parameters']['engagement radial ae (mm)'])
-        #     ap = float(self.result['input_parameters']['engagement axial ap (mm)'])
-        #     h = float(root.children[f"epaisseur de coupe h (mm)_{n}"].get())
-        #     d = float(self.general_parameters['diameter'])
-        #     z = float(self.general_parameters['n_teeth'])
-        #
-        #     Q = compute_Q(Vc, ae, ap, h, d, z)
-        #
-        #     if self.Q_max is None:
-        #         self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
-        #     elif Q > self.Q_max:
-        #         self.children['search_param'].configure(text=f'Q max = {Q:.4f}')
-        #         self.Q_max = Q
+            target_widgets = np.asarray([kw[1]['text'] for kw in root.children.items() if f'{self.target.split()[0].lower()}_' in kw[0].split('.')[-1]])
+            status_list = [kw[1].get() == 'OK' for kw in root.children.items() if "statut_" in kw[0]]
+
+            ok_values = target_widgets[status_list]
+
+            if len(ok_values) > 0:
+                self.max_params[self.target.split()[0]] = np.max(ok_values)
+                self.children['search_param'].configure(text=f'{self.target} = {np.max(ok_values):.4f}')
 
     def update_dynamic_row(self, filename, btn, **kwargs):
         root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
 
-        row = [child.grid_info()["row"] for child in root.grid_slaves() if child is btn][0] - 1
+        row = btn.grid_info()['row']
 
         # Check if there was already a selected file
         already_used = btn['text'] != 'Parcourir'
@@ -227,47 +198,61 @@ class Window(tk.Tk):
         # Set green and text filename in button
         btn.configure(fg="green", text=filename)
 
+        # Get all widgets of the pressed button row
+        widgets = [kv for kv in root.children.values() if kv.grid_info()['row'] == row and kv.grid_info()['column'] > 0]
+
         # Set Pc (W)
         # pc = get_pc_from_machining_file(filename)
-        Pc = np.random.random()
-        root.children[f"pc (w)_{row}"].configure(text=Pc)
-
-        widgets = [child for child in root.grid_slaves() if child.grid_info()['row'] > 0 and child.grid_info()['column'] > 0]
+        Pc = np.random.randint(100, 1000)
+        [w for w in widgets if 'pc (w)' in str(w).split('.')[-1]][0].configure(text=Pc)
 
         d = self.general_parameters['diameter']
         z = self.general_parameters['n_teeth']
 
-        ap = float(self.result['input_parameters']['engagement axial ap (mm)']) if 'engagement axial ap (mm)' in self.result['input_parameters'].keys() else float(root.children[f"engagement axial ap (mm)_{row}"].get())
-        ae = float(self.result['input_parameters']['engagement radial ae (mm)']) if 'engagement radial ae (mm)' in self.result['input_parameters'].keys() else float(root.children[f"engagement radial ae (mm)_{row}"].get())
+        ap = float(self.result['input_parameters']['engagement axial ap (mm)']) if 'engagement axial ap (mm)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'ap (mm)' in str(w).split('.')[-1]][0].get())
+        ae = float(self.result['input_parameters']['engagement radial ae (mm)']) if 'engagement radial ae (mm)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'ae (mm)' in str(w).split('.')[-1]][0].get())
 
-        Vc = float(self.result['input_parameters']['vitesse de coupe vc (m/min)']) if 'vitesse de coupe vc (m/min)' in self.result['input_parameters'].keys() else float(root.children[f"vitesse de coupe vc (m/min)_{row}"].get())
+        Vc = float(self.result['input_parameters']['vitesse de coupe vc (m/min)']) if 'vitesse de coupe vc (m/min)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'vc (m/min)' in str(w).split('.')[-1]][0].get())
 
-        fz = float(self.result['input_parameters']['avance par dent fz (mm/tr)']) if 'avance par dent fz (mm/tr)' in self.result['input_parameters'].keys() else float(root.children[f"avance par dent fz (mm/tr)_{row}"].get())
+        fz = float(self.result['input_parameters']['avance par dent fz (mm/tr)']) if 'avance par dent fz (mm/tr)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'fz (mm/tr)' in str(w).split('.')[-1]][0].get())
 
         for widget in widgets:
             widget_name = str(widget).split(".")[-1]
-            if 'Wc' in widget_name:
-                compute_Wc(d, Pc, ap, ae, z, fz, Vc)
+            if 'wc (w)' in widget_name:
+                widget.configure(text=compute_Wc(d, Pc, ap, ae, z, fz, Vc))
 
-            elif 'N' in widget_name:
-                compute_N(Vc, d)
+            elif 'vitesse de broche n' in widget_name:
+                N = compute_N(Vc, d)
+                widget.configure(text=N)
 
-            elif 'Vf' in widget_name:
-                N = float(self.result['input_parameters']['Vitesse de broche N']) if 'Vitesse de broche N' in self.result['input_parameters'].keys() else float(root.children[f"Vitesse de broche N_{row}"].get())
-                compute_Vf(N, fz, z)
+            elif 'vf' in widget_name:
+                Vf = compute_Vf(N, fz, z)
+                widget.configure(text=Vf)
 
             elif 'h (mm)' in widget_name:
-                compute_h(ae, fz, d)
+                widget.configure(text=compute_h(ae, fz, d))
 
-            elif 'Label' in str(type(widget)):
-                if 'statut' in widget_name:
-                    widget.configure(text="OK")
-                else:
-                    widget.configure(text=f'{random.randint(0, 10)}')
-
-            elif 'Entry' in str(type(widget)):
+            elif 'statut' in widget_name:
+                # widget.configure(text="OK")
                 widget.delete(0, tk.END)
-                widget.insert(0, f'{random.randint(0, 10)}')
+                widget.insert(0, 'OK')
+
+            elif 'ad_' in widget_name:
+                widget.configure(text=ap * ae)
+
+            elif 'q_' in widget_name:
+                AD = ap * ae
+                widget.configure(text=compute_Q(AD, Vf))
+
+            # elif 'Label' in str(type(widget)):
+            #     if 'statut' in widget_name:
+            #         widget.configure(text="OK")
+            #     else:
+            #         widget.configure(text=f'{random.randint(0, 10)}')
+            #
+            # elif 'Entry' in str(type(widget)):
+            #     widget.delete(0, tk.END)
+            #     widget.insert(0, f'{random.randint(0, 10)}')
 
         self.update_ADQ_max(widgets, row, **kwargs)
 
@@ -458,7 +443,7 @@ class Window(tk.Tk):
         ent = tk.Entry(root, width=25, name=ent_name, justify='center')
 
         if self.debug:
-            ent.insert(0, f'{random.randrange(10)}')
+            ent.insert(0, f'{random.randint(1, 10)}')
 
         ent.grid(row=row, column=1)
 
@@ -491,10 +476,10 @@ class Window(tk.Tk):
                 btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['select_file']))
                 btn.grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
-            elif key in ['Engagement axial ap (mm)', 'Engagement radial ae (mm)', "Vitesse de coupe Vc (m/min)", "Avance par dent fz (mm/tr)"]:
+            elif key in ['Engagement axial ap (mm)', 'Engagement radial ae (mm)', "Vitesse de coupe Vc (m/min)", "Avance par dent fz (mm/tr)", "Statut"]:
                 ent = tk.Entry(root, width=25, name=name, justify='center')
                 if self.debug:
-                    ent.insert(0, f'{random.randrange(10)}')
+                    ent.insert(0, f'{random.randint(1, 10)}')
 
                 ent.grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
