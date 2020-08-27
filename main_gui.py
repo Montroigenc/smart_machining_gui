@@ -22,9 +22,11 @@ class UserGUI():
         self.output_dir = config_params['output_dir']
 
     def __call__(self):
+        general_parameters = {'operation': 'Fraisage', 'tool': 'Outil1', 'diameter': 1, 'n_teeth': 9, 'user_name': 'werth', 'date': '25/août/2020', 'lubrication': 'etz', 'comments': 'etzj'}
+
         operation_parameters = dict()
 
-        step = 0
+        step = 5
         while step < 5:
             if step == 0:
                 # get operation type
@@ -35,9 +37,9 @@ class UserGUI():
                 # self.tools_data = load_tools_data(operation)
 
                 # ask user to chose a tool from the predefined list in the config file
-                # general_parameters, action = set_user_window(self.app_name, "Caractéristiques de l'usinage", available_operations=self.available_operations)
-                general_parameters = {'operation': 'Fraisage', 'tool': 'Outil1', 'diameter': 1, 'n_teeth': 9, 'user_name': 'werth', 'date': '25/août/2020', 'lubrication': 'etz', 'comments': 'etzj'}
-                action = "next"
+                general_parameters, action = set_user_window(self.app_name, "Caractéristiques de l'usinage", available_operations=self.available_operations)
+                # general_parameters = {'operation': 'Fraisage', 'tool': 'Outil1', 'diameter': 1, 'n_teeth': 9, 'user_name': 'werth', 'date': '25/août/2020', 'lubrication': 'etz', 'comments': 'etzj'}
+                # action = "next"
                 step = step + 1 if action == 'next' else step
 
             if step == 1:
@@ -61,7 +63,8 @@ class UserGUI():
                 operation_parameters['qmax'], action = set_user_window(self.app_name, "Q max", general_parameters=general_parameters)
                 step = step + 1 if action == 'next' else step - 1
 
-        with open(f'{self.output_dir}/{datetime.now()}_data.txt', 'w') as f:
+        with open(f"{self.output_dir}/{str(datetime.now()).replace(' ', '_').replace(':', '-').replace('.', 'c')}_data.txt", 'w') as f:
+            # with open(f'output/data.txt', 'w') as f:
             json.dump(general_parameters, f, indent=2)
             json.dump(operation_parameters, f, indent=2)
 

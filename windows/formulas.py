@@ -83,7 +83,7 @@ def compute_dynamic_table(target, win):
                 res['y'].append(Pc)
 
     dydx = np.diff(res['y']) / np.diff(res['x'])
-    res['min_target_value'] = np.argmin(dydx) + 1
+    res['min_target_value'] = np.argmin(dydx)
     # res['best_range_max'] = res['best_range_min'] - 1
     # print(dydx)
 
@@ -104,7 +104,7 @@ def compute_h(ae, fz, d):
         return fz
 
 
-def compute_Q(self, Vc, ae, ap, h, d, z):
+def compute_Q(Vc, ae, ap, h, d, z):
     # d = self.general_parameters['diameter']
     # z = self.general_parameters['n_teeth']  # number of effective teeth
     fz = get_fz_from_h(d, h, ae)

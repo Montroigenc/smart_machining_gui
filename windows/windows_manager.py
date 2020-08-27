@@ -46,10 +46,15 @@ def set_general_machining_characteristics(win):
     frame = tk.Frame(win, name='general_machining_characteristics')
 
     # Set text entries
-    win.append_combobox_row("Opération", list(win.available_operations), fcn=win.operation_cbox_callback, root=frame, row=1, name='operation')
-    win.append_combobox_row("Outil", list(win.tools_data), fcn=win.tool_cbox_callback, root=frame, row=2, name='tool')
-    win.append_label_row(["Diamètre :", ""], root=frame, row=3, names=['', 'diameter'])
-    win.append_label_row(["Nombre de dents :", ""], root=frame, row=4, names=['', 'n_teeth'])
+    # win.append_combobox_row("Opération", list(win.available_operations), fcn=win.operation_cbox_callback, root=frame, row=1, name='operation')
+    # win.append_combobox_row("Outil", list(win.tools_data), fcn=win.tool_cbox_callback, root=frame, row=2, name='tool')
+    # win.append_label_row(["Diamètre :", ""], root=frame, row=3, names=['', 'diameter'])
+    # win.append_label_row(["Nombre de dents :", ""], root=frame, row=4, names=['', 'n_teeth'])
+
+    win.append_label_row(["Opération :", "Fraisage"], root=frame, row=1, names=['', 'operation'])
+    win.append_entry_row("Outil", root=frame, row=2, ent_name='tool')
+    win.append_entry_row("Diamètre", root=frame, row=3, ent_name='diameter')
+    win.append_entry_row("Nombre de dents", root=frame, row=4, ent_name='n_teeth')
 
     win.append_entry_row("Opérateur", row=5, root=frame, ent_name='user_name')
     win.append_date(root=frame, row_idx=6)
@@ -61,30 +66,28 @@ def set_general_machining_characteristics(win):
     # Set buttons
     tk.Button(win, text=" Suivant ", command=lambda **kwargs: win.change_program_state(actions=["get_data", "next"], action_root=[frame]), pady=5).pack(pady=10)
 
+    win()
+
 
 def get_operation_window_headers(target):
     if target == 'Vc min' in target:
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Avance par dent fz (mm/tr)"]
-        dynamic_table_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "Pc (W)", "Wc (W)"]
+        dynamic_table_headers = ["Mesure n°", "Vitesse de coupe Vc (m/min)", "Fichier de mesure", "N", "Vf", "Pc (W)", "Wc (W)"]
     elif target == 'f min':
         entries = ["Engagement axial ap (mm)",
                    "Engagement radial ae (mm)",
                    "Vitesse de coupe Vc (m/min)"]
-        dynamic_table_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Fichier de mesure", "Pc (W)", "Wc (W)"]
+        dynamic_table_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Fichier de mesure", "N", "Vf", "Pc (W)", "Wc (W)"]
     elif target == 'AD max':
-        entries = ["Engagement axial init ap (mm)",
-                   "Engagement radial init ae (mm)",
-                   "Vitesse de coupe Vc (m/min)",
-                   "Épaisseur de coupe h (mm)"]
-        dynamic_table_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "Statut"]
+        entries = ["Vitesse de coupe Vc (m/min)",
+                   "Avance par dent fz (mm/tr)"]
+        dynamic_table_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "N", "Vf", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "AD", "Statut"]
     elif target == 'Q max':
         entries = ["Engagement axial ap (mm)",
-                   "Engagement radial ae (mm)",
-                   "Vitesse de coupe init Vc (m/min)",
-                   "Épaisseur de coupe init h (mm)"]
-        dynamic_table_headers = ["Mesure n°", "Épaisseur de coupe h (mm)", "Vitesse de coupe Vc (mm/tr)", "Fichier de mesure", "Pc (W)", "Wc (W)", "Statut"]
+                   "Engagement radial ae (mm)"]
+        dynamic_table_headers = ["Mesure n°", "Épaisseur de coupe h (mm)", "Vitesse de coupe Vc (m/min)", "N", "Vf", "fz", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "Q", "Statut"]
 
     return entries, dynamic_table_headers
 
@@ -127,16 +130,25 @@ def set_operation_window_dynamic_parameters(win, target, table_headers):
     # Set dynamic table headers
     win.append_label_row(table_headers + [""], root=dynamic_parameters_frame.interior, header=True)
 
+    # Additional search parameter
+    if 'max' in target:
+        search_param = f"{['AD max', 'Q max'][['AD max', 'Q max'].index(target)]}"
+        search_param_lbl = tk.Label(win, text=f"{search_param} = ", width=22, font='Helvetica 11 bold', name='search_param', borderwidth=2, relief="solid")
+
     # Set dynamic table first row
-    win.append_dynamic_row(root=dynamic_parameters_frame.interior)
+    if win.debug:
+        for i in range(10):
+            win.append_dynamic_row(root=dynamic_parameters_frame.interior)
+
+    else:
+        win.append_dynamic_row(root=dynamic_parameters_frame.interior)
 
     dynamic_parameters_frame.pack(padx=15, pady=15)
     dynamic_parameters_frame.interior.pack(padx=20, pady=15)
 
-    # Additional search parameter
+    # Additional search parameter packed here to avoid error while non existing search parameter widged while debugging with append_dynamic_row
     if 'max' in target:
-        search_param = f"{['AD max', 'Q max'][['AD max', 'Q max'].index(target)]}"
-        tk.Label(win, text=f"{search_param} = ", width=22, font='Helvetica 11 bold', name='search_param', borderwidth=2, relief="solid").pack(padx=15, pady=15)
+        search_param_lbl.pack(padx=15, pady=15)
 
     # Set buttons
     buttons_frame = tk.Frame(win, name="buttons")
@@ -164,7 +176,7 @@ def show_graphic(data, win):
 
     # DATA TABLE
     table_frame = VerticalScrolledFrame(data_frame, interior_name='table')
-    win.append_label_row(["Vitesse de coupe Vc (m/min)", "Wc (W.min/cm3)"], root=table_frame.interior, header=True)
+    win.append_label_row(["Vitesse de coupe Vc (m/min)", "Wc (W*min/cm3)"], root=table_frame.interior, header=True)
     for row_idx, (vci, wci) in enumerate(zip(data['x'], data['y'])):
         win.append_label_row([vci, wci], root=table_frame.interior, row=row_idx+1)
 
@@ -191,7 +203,7 @@ def show_graphic(data, win):
 
 
 def set_operation_window(win, target):
-    debug = True
+    debug = False
     step = 0
     entries, dynamic_table_headers = get_operation_window_headers(target)
 
@@ -230,6 +242,7 @@ def set_operation_window(win, target):
 
 
 def set_user_window(app_name, target, **kwargs):
+    kwargs['debug'] = True
     win = Window(app_name, window_title=f'Détermination de {target}', target=target, **kwargs)
     if target == "Caractéristiques de l'usinage":
         set_general_machining_characteristics(win)
