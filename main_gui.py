@@ -47,7 +47,7 @@ class UserGUI():
 
             if step == 2:
                 # Determination of the range hmin – hmax
-                # operation_parameters['fmin'], action = set_user_window(self.app_name, "f min", general_parameters=general_parameters)
+                operation_parameters['fmin'], action = set_user_window(self.app_name, "f min", general_parameters=general_parameters)
                 step = step + 1 if action == 'next' else step - 1
 
             if step == 3:
@@ -61,9 +61,9 @@ class UserGUI():
                 operation_parameters['qmax'], action = set_user_window(self.app_name, "Q max", general_parameters=general_parameters)
                 step = step + 1 if action == 'next' else step - 1
 
-        # with open(f"{self.output_dir}/{str(datetime.now()).replace(' ', '_').replace(':', '-').replace('.', 'c')}_data.txt", 'w') as f:
-        #     json.dump(general_parameters, f, indent=2)
-        #     json.dump(operation_parameters, f, indent=2)
+        with open(f"{self.output_dir}/{str(datetime.now()).replace(' ', '_').replace(':', '-').replace('.', 'c')}_data.txt", 'w') as f:
+            json.dump(general_parameters, f, indent=2)
+            json.dump(operation_parameters, f, indent=2)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,6 @@ from matplotlib.figure import Figure
 from utils.utils import load_tools_data
 from data_manager.data_manager import get_pc_from_machining_file
 from windows.formulas import compute_Q, compute_Wc, compute_h, compute_N, compute_Vf
-from windows.tangent_method import plot_tangent_data
 
 
 class VerticalScrolledFrame(tk.Frame):
@@ -76,16 +75,16 @@ class VerticalScrolledFrame(tk.Frame):
 
 
 class GraphFrame(tk.Frame):
-    def __init__(self, parent, name, data, axis_labels):
+    def __init__(self, parent, name, figure):
         tk.Frame.__init__(self, parent, name=name)
 
-        f = Figure(figsize=(5, 5), dpi=100)
-        a = f.add_subplot(111)
-        a.plot(data['x'], data['y'])
+        # f = Figure(figsize=(5, 5), dpi=100)
+        # a = f.add_subplot(111)
+        # a.plot(data['x'], data['y'])
 
-        f = plot_tangent_data(data, axis_labels)
+        # f, means = plot_tangent_data(data, axis_labels)
 
-        canvas = FigureCanvasTkAgg(f, self)
+        canvas = FigureCanvasTkAgg(figure, self)
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
@@ -111,8 +110,8 @@ class Window(tk.Tk):
 
         self.result = dict()
 
-        self.AD_max = None
-        self.Q_max = None
+        # self.AD_max = None
+        # self.Q_max = None
         self.max_params = {'AD': -1, 'Q': -1}
 
         self.action = None

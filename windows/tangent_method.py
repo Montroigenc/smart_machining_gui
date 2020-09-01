@@ -1,12 +1,7 @@
 import matplotlib.pyplot as plt
-
-# plt.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.figure import Figure
-
 import numpy as np
 from sklearn.neural_network import MLPRegressor
-import matplotlib.lines as mlines
+import unidecode
 
 
 def make_patch_spines_invisible(ax):
@@ -50,8 +45,19 @@ def plot_tangent_data(data, axis_labels=None):
 
     # first tangent
     diff = yfirst.max() - yfirst.min()
-    last_point_idx = (yfirst < diff * 0.2 + yfirst.min()).argmin() + 1
-    first_tangent = Tangent(x[:last_point_idx + 1], y[:last_point_idx + 1])
+
+    x_in, y_in, end = [], [], False
+    yfirst_min = yfirst.min()
+    for idx, val in enumerate(yfirst):
+        c = val < diff * 0.75 + yfirst_min
+        if len(x_in) > 0 and not c:
+            break
+        elif c:
+            x_in.append(x[idx])
+            y_in.append(y[idx])
+
+    first_tangent = Tangent(x_in, y_in)
+
     xmin_ft_plot, xmax_ft_plot = xmin - view_tolerance_x, xmax + view_tolerance_x
     a.plot(tuple([xmin_ft_plot, xmax_ft_plot]), tuple([first_tangent(xmin_ft_plot), first_tangent(xmax_ft_plot)]), color='g', linestyle='--')
 
@@ -83,7 +89,7 @@ def plot_tangent_data(data, axis_labels=None):
     diffs = np.abs(y - y_intersection)
     closest_idxs = diffs.argsort()[:2]
     rest = diffs[closest_idxs] / np.sum(diffs[closest_idxs])
-    vc_min_min = (x[closest_idxs[0]] * rest[1] + x[closest_idxs[1]] * rest[0], y_intersection)
+    vc_min_min = np.array([x[closest_idxs[0]] * rest[1] + x[closest_idxs[1]] * rest[0], y_intersection])
     a.plot(vc_min_min[0], vc_min_min[1], color='r', marker='o', markersize=8)
     a.text(vc_min_min[0] + view_tolerance_x, vc_min_min[1] + view_tolerance_y, f'B {vc_min_min[0]:.2f}, {vc_min_min[1]:.2f}', fontsize=12)
 
@@ -91,15 +97,23 @@ def plot_tangent_data(data, axis_labels=None):
     diffs = np.abs(x - x_intersection)
     closest_idxs = diffs.argsort()[:2]
     rest = diffs[closest_idxs] / np.sum(diffs[closest_idxs])
-    vc_min_max = (x_intersection, y[closest_idxs[0]] * rest[1] + y[closest_idxs[1]] * rest[0])
+    vc_min_max = np.array([x_intersection, y[closest_idxs[0]] * rest[1] + y[closest_idxs[1]] * rest[0]])
     a.plot(vc_min_max[0], vc_min_max[1], color='r', marker='o', markersize=8)
     a.text(vc_min_max[0] + view_tolerance_x, vc_min_max[1] + view_tolerance_y, f'C {vc_min_max[0]:.2f}, {vc_min_max[1]:.2f}', fontsize=12)
 
-    if axis_labels is not None:
-        a.set_xlabel(axis_labels['x_lab'])
-        a.set_ylabel(axis_labels['y_lab'])
+    means = (vc_min_max + vc_min_min) / 2
+    means_dict = {f"{unidecode.unidecode(axis_labels['x_lab'].lower())}": means[0], f"{unidecode.unidecode(axis_labels['y_lab'].lower())}": means[1]}
 
-    return f
+    x_param_name = "Vc" if axis_labels['x_lab'] == "Vitesse de coupe Vc (m/min)" else "h"
+
+    a.text(xmax * 0.4, ymax * 0.75, f'{x_param_name} moyenne={means[1]:.2f}', fontsize=12)
+    a.text(xmax * 0.4, ymax * 0.7, f'Wc moyenne={means[0]:.2f}', fontsize=12)
+
+    # set axis labels
+    a.set_xlabel(axis_labels['x_lab'])
+    a.set_ylabel(axis_labels['y_lab'])
+
+    return f, means_dict
 
 
 def plot_tangent_data_2(data, axis_labels=None):
@@ -172,14 +186,6 @@ def plot_tangent_data_2(data, axis_labels=None):
 
 
 def get_dummy_data_one_inflexion_point(length):
-    data = dict()
-    data['x'] = [i for i in range(length)]
-    data['y'] = [np.exp(-i/4) for i in range(length)]
-
-    return data
-
-
-def get_dummy_data_two_inflexion_points(length):
     data = dict()
     data['x'] = [i for i in range(length)]
     data['y'] = [np.exp(-i/4) for i in range(length)]
