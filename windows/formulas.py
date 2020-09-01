@@ -75,8 +75,9 @@ def compute_dynamic_table(target, win):
                     # res['statut'].append(statut)
 
             elif target == 'Vc min':
-                Vc = row_idx - 1
-                Pc = np.exp(-row_idx)
+                Vc = row_idx
+                # Pc = np.exp(-row_idx/4)
+                Pc = 50 * np.exp(-row_idx)  # + row_idx
 
                 # Vc = float(table_params[f"vitesse de coupe vc (m/min)_{row_idx}"])
                 # Pc = float(table_params[f"pc (w)_{row_idx}"])
@@ -84,8 +85,8 @@ def compute_dynamic_table(target, win):
                 res['x'].append(Vc)
                 res['y'].append(Pc)
 
-    dydx = np.diff(res['y']) / np.diff(res['x'])
-    res['min_target_value'] = np.argmin(dydx)
+    # dydx = np.diff(res['y']) / np.diff(res['x'])
+    # res['min_target_value'] = np.argmin(dydx)
     # res['best_range_max'] = res['best_range_min'] - 1
     # print(dydx)
 

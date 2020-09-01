@@ -148,7 +148,7 @@ def set_operation_window_dynamic_parameters(win, target, table_headers):
         win.append_dynamic_row(root=dynamic_parameters_frame.interior)
 
     dynamic_parameters_frame.pack(padx=15, pady=15)
-    dynamic_parameters_frame.interior.pack(padx=20, pady=15)
+    # dynamic_parameters_frame.interior.pack(padx=20, pady=15)
 
     # Additional search parameter packed here to avoid error while non existing search parameter widged while debugging with append_dynamic_row
     if 'max' in target:
@@ -180,17 +180,17 @@ def show_graphic(data, win):
 
     # DATA TABLE
     table_frame = VerticalScrolledFrame(data_frame, interior_name='table')
+    # table_frame = VerticalScrolledFrame(win, interior_name='table')
     win.append_label_row(["Vitesse de coupe Vc (m/min)", "Wc (W*min/cm3)"], root=table_frame.interior, header=True)
     for row_idx, (vci, wci) in enumerate(zip(data['x'], data['y'])):
         win.append_label_row([vci, wci], root=table_frame.interior, row=row_idx+1)
 
-    table_frame.interior.pack(side=tk.LEFT, padx=10, pady=10)
     table_frame.pack(side=tk.LEFT, padx=10, pady=10)
 
     # GRAPH
     axis_labels = {'x_lab': 'Cutting speed (Vc)', 'y_lab': 'Cutting energy (Wc)'}
     graph_frame = GraphFrame(win, name='graph_frame', data=data, axis_labels=axis_labels)
-    graph_frame.pack(side=tk.RIGHT, padx=10, pady=10)
+    graph_frame.pack(side=tk.LEFT, padx=10, pady=10)
 
     data_frame.pack(padx=10, pady=10)
 
@@ -203,7 +203,7 @@ def show_graphic(data, win):
     next_btn.grid(row=1, column=0, padx=10, pady=10)
     return_btn.grid(row=1, column=1, padx=10, pady=10)
 
-    btns_frame.pack(padx=10, pady=10)
+    btns_frame.pack(side=tk.BOTTOM, padx=10, pady=10)
 
 
 def set_operation_window(win, target):

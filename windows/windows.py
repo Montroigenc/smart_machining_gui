@@ -25,6 +25,7 @@ from matplotlib.figure import Figure
 from utils.utils import load_tools_data
 from data_manager.data_manager import get_pc_from_machining_file
 from windows.formulas import compute_Q, compute_Wc, compute_h, compute_N, compute_Vf
+from windows.tangent_method import plot_tangent_data
 
 
 class VerticalScrolledFrame(tk.Frame):
@@ -81,14 +82,8 @@ class GraphFrame(tk.Frame):
         f = Figure(figsize=(5, 5), dpi=100)
         a = f.add_subplot(111)
         a.plot(data['x'], data['y'])
-        a.set_xlabel(axis_labels['x_lab'])
-        a.set_ylabel(axis_labels['y_lab'])
 
-        # a.axvline(data['best_range_min'], linewidth=4, color='r')
-        # a.axvline(data['best_range_max'], linewidth=4, color='r')
-
-        # a.axvspan(data['x'][data['best_range_min']], data['x'][data['best_range_max']], facecolor='g', alpha=0.5)
-        a.axvspan(data['x'][data['min_target_value']], data['x'][data['min_target_value'] + 1], facecolor='g', alpha=0.5)
+        f = plot_tangent_data(data, axis_labels)
 
         canvas = FigureCanvasTkAgg(f, self)
         canvas.draw()
