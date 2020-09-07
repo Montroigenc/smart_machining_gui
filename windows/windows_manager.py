@@ -83,9 +83,9 @@ def get_operation_window_headers(target):
         dynamic_table_headers = ["Mesure n°", "Avance par dent fz (mm/tr)", "Vitesse de broche N", "Vitesse d'avance Vf (m/min)", "Fichier de mesure", "Pc (W)", "Wc (W)"]
     elif target == 'AD max':
         entries = ["Vitesse de coupe Vc (m/min)",
-                   "Avance par dent fz (mm/tr)",
-                   "Vitesse de broche N",
-                   "Vitesse d'avance Vf (m/min)"]
+                   "Avance par dent fz (mm/tr)",]
+                   # "Vitesse de broche N",
+                   # "Vitesse d'avance Vf (m/min)"]
         # dynamic_table_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "N", "Vf", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "AD", "Statut"]
 
         dynamic_table_headers = ["Mesure n°", "Engagement axial ap (mm)", "Engagement radial ae (mm)", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Énergie spécifique de coupe Wc (W)", "Section de coupe AD", "Statut"]
@@ -123,6 +123,17 @@ def set_operation_window_dynamic_parameters(win, target, table_headers):
     constant_parameters_frame = tk.Frame(win, name="constant_parameters", highlightthickness=2, highlightbackground="black")
 
     win.append_label_row(["Paramètres d’entrée", "Valeurs utilisées"], root=constant_parameters_frame, header=True)
+
+    if target == 'AD max':
+        d = float(win.general_parameters['diameter'])
+        Vc = float(win.result['input_parameters']['vitesse de coupe vc (m/min)'])
+        fz = float(win.result['input_parameters']['avance par dent fz (mm/tr)'])
+        z = float(win.general_parameters['n_teeth'])
+
+        N = compute_N(Vc, d)
+
+        win.result['input_parameters']["vitesse de broche n"] = N
+        win.result['input_parameters']["vitesse d'avance vf (m/min)"] = compute_Vf(N, fz, z)
 
     for i, (key, entry) in enumerate(win.result['input_parameters'].items()):
         win.append_label_row([key, entry], row=i + 1, root=constant_parameters_frame)

@@ -200,8 +200,8 @@ class Window(tk.Tk):
         Pc = np.random.randint(100, 1000)
         [w for w in widgets if 'pc (w)' in str(w).split('.')[-1]][0].configure(text=Pc)
 
-        d = self.general_parameters['diameter']
-        z = self.general_parameters['n_teeth']
+        d = float(self.general_parameters['diameter'])
+        z = float(self.general_parameters['n_teeth'])
 
         ap = float(self.result['input_parameters']['engagement axial ap (mm)']) if 'engagement axial ap (mm)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'ap (mm)' in str(w).split('.')[-1]][0].get())
         ae = float(self.result['input_parameters']['engagement radial ae (mm)']) if 'engagement radial ae (mm)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'ae (mm)' in str(w).split('.')[-1]][0].get())

@@ -106,7 +106,7 @@ def plot_tangent_data(data, axis_labels=None):
 
     x_param_name = "Vc" if axis_labels['x_lab'] == "Vitesse de coupe Vc (m/min)" else "h"
 
-    a.text(xmax * 0.4, ymax * 0.75, f'{x_param_name} moyenne={means[1]:.2f}', fontsize=12)
+    a.text(xmax * 0.4, ymax * 0.75, f'{x_param_name} min={means[1]:.2f}', fontsize=12)
     a.text(xmax * 0.4, ymax * 0.7, f'Wc moyenne={means[0]:.2f}', fontsize=12)
 
     # set axis labels
