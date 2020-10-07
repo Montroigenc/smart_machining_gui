@@ -23,7 +23,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 
 from utils.utils import load_tools_data
-from data_manager.data_manager import get_pc_from_machining_file
+from data_manager.data_manager import get_pc_from_machining_file_unique_entry
 from windows.formulas import compute_Q, compute_Wc, compute_h, compute_N, compute_Vf
 
 
@@ -196,8 +196,9 @@ class Window(tk.Tk):
         widgets = [kv for kv in root.children.values() if kv.grid_info()['row'] == row and kv.grid_info()['column'] > 0]
 
         # Set Pc (W)
-        # pc = get_pc_from_machining_file(filename)
-        Pc = np.random.randint(100, 1000)
+        file_data = get_pc_from_machining_file_unique_entry(filename)
+        Pc = float(file_data['Pc'])
+        # Pc = np.random.randint(100, 1000)
         [w for w in widgets if 'pc (w)' in str(w).split('.')[-1]][0].configure(text=Pc)
 
         d = float(self.general_parameters['diameter'])

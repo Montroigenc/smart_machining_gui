@@ -260,7 +260,7 @@ def set_operation_window(win, target):
 
 
 def set_user_window(app_name, target, **kwargs):
-    kwargs['debug'] = True
+    # kwargs['debug'] = True
     win = Window(app_name, window_title=f'Détermination de {target}', target=target, **kwargs)
     if target == "Caractéristiques de l'usinage":
         set_general_machining_characteristics(win)

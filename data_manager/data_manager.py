@@ -1,9 +1,13 @@
-from pandas_ods_reader import read_ods
+# from pandas_ods_reader import read_ods
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 import numpy as np
 from tqdm import tqdm, trange
 import pandas as pd
+
+import tkinter as tk
+from tkinter import filedialog
+from matplotlib.patches import Patch
 
 new_btn_press = False
 btn_press_x_position = -1
@@ -11,7 +15,13 @@ btn_press_axis_row = -1
 btn_press_button = -1
 
 
-def get_pc_from_machining_file(file_path):
+def get_file_name():
+    root = tk.Tk()
+    root.withdraw()
+    return filedialog.askopenfilename(title='Select grayscale image')
+
+
+def get_pc_from_machining_file(file_path_):
     global new_btn_press, btn_press_x_position, btn_press_axis_row, btn_press_button
 
     def onclick(event):
@@ -22,13 +32,15 @@ def get_pc_from_machining_file(file_path):
         btn_press_button = event.button
 
     # load a sheet based on its name
-    raw_data = read_ods(file_path, "WATTMETRE")
+    data_frame = pd.read_csv(file_path_, sep=";", error_bad_lines=False)
+    data_time = data_frame.iloc[18:-1, 0].astype(int)
+    raw_data = data_frame.iloc[18:-1, 1].astype(int)
 
-    sampled_raw_data = pd.DataFrame()
-    for c in raw_data.columns:
-        sampled_raw_data[c] = raw_data[c][::50]
-
-    raw_data = sampled_raw_data
+    # sampled_raw_data = pd.DataFrame()
+    # for c in raw_data.columns:
+    #     sampled_raw_data[c] = raw_data[c][::50]
+    #
+    # raw_data = sampled_raw_data
 
     t = raw_data.shape[0]
 
@@ -37,7 +49,8 @@ def get_pc_from_machining_file(file_path):
     normalized_data /= normalized_data.max()
 
     # smoothed_data = normalized_data.rolling(window=2000, win_type='gaussian', center=True).mean(std=0.5)
-    smoothed_data = normalized_data.rolling(window=4000).mean()
+    # smoothed_data = normalized_data.rolling(window=4000).mean()
+    smoothed_data = normalized_data
 
     derivative_data = smoothed_data.diff()
 
@@ -239,9 +252,177 @@ def get_pc_from_machining_file(file_path):
     return results
 
 
-if __name__ == "__main__":
-    file_path = 'C:/Users/RI/Desktop/TEST_WAT_2_W_fmin_DataFile.ods'
-    # file_path = 'C:/Users/RI/Desktop/OneDrive - Richemont International SA/smart_machining/data/TEST_WAT_2_W_fmin_DataFile.ods'
+def get_pc_from_machining_file_unique_entry(file_path_):
+    global new_btn_press, btn_press_x_position, btn_press_button
 
-    vals = get_pc_from_machining_file(file_path)
+    def onclick(event):
+        global new_btn_press, btn_press_x_position, btn_press_button
+        new_btn_press = True
+        btn_press_x_position = event.xdata
+        btn_press_button = event.button
+
+    # load a sheet based on its name
+    data_frame = pd.read_csv(file_path_, sep=";", error_bad_lines=False)
+
+    raw_data = pd.DataFrame()
+    raw_data['time'] = data_frame.iloc[18:-1, 0].astype(int)
+    raw_data['values'] = data_frame.iloc[18:-1, 1].astype(int)
+
+    t = raw_data.shape[0]
+
+    # get edges
+    normalized_data = (raw_data['values'] - raw_data['values'].min()).astype(float)
+    normalized_data /= normalized_data.max()
+
+    derivative_data = normalized_data.diff()
+    derivative_smoothed_data = derivative_data
+    derivative_smoothed_data /= derivative_smoothed_data.abs().max()
+
+    noise_threshold = 0.022
+
+    edges = {'sign_change': [], 'sign_change_idxs': []}
+
+    valid_pos = derivative_smoothed_data.abs() > noise_threshold
+    valid_time = raw_data['time'][valid_pos].values
+    valid_values = derivative_smoothed_data[valid_pos].values
+    valid_idxs = np.arange(t)[valid_pos]
+
+    for idx in range(1, len(valid_time) - 1):
+        if np.sign(valid_values[idx - 1]) != np.sign(valid_values[idx]) or np.sign(valid_values[idx + 1]) != np.sign(valid_values[idx]):
+            edges['sign_change'].append(valid_time[idx])
+            edges['sign_change_idxs'].append(valid_idxs[idx])
+
+    #####################################################
+    # plot data and get low and high values
+    fig, ax = plt.subplots(num=9)
+
+    color = 'tab:red'
+    ax.set_xlabel('time (ms)')
+    ax.set_ylabel('Pc(W)', color=color)
+    # ax.plot(raw_data['time'], normalized_data.values, color=color)
+    ax.plot(raw_data['time'], raw_data['values'], color=color)
+    ax.tick_params(axis='y', labelcolor=color)
+
+    ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+
+    color = 'tab:blue'
+    ax2.set_ylabel('derivative', color=color)  # we already handled the x-label with ax
+    ax2.plot(raw_data['time'], derivative_smoothed_data.values, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+    edges['plots'] = []
+    low_vals, high_vals = [], []
+
+    if len(edges['sign_change']) < 2:
+        low_vals.extend(normalized_data.values)
+        axinf = ax.axvspan(0, t - 1, ymin=0.0, ymax=1.0, alpha=0.5, color='green')
+        edges['plots'].append(axinf)
+    else:
+        low_vals.extend(raw_data['values'].values[edges['sign_change_idxs'][0]:edges['sign_change_idxs'][1]])
+        axinf = ax.axvspan(edges['sign_change'][0], edges['sign_change'][1], ymin=0.0, ymax=1.0, alpha=0.5, color='green')
+        edges['plots'].append(axinf)
+
+        high_vals.extend(raw_data['values'].values[edges['sign_change_idxs'][2]:edges['sign_change_idxs'][3]])
+        axinf = ax.axvspan(edges['sign_change'][2], edges['sign_change'][3], ymin=0.0, ymax=1.0, alpha=0.5, color='red')
+        edges['plots'].append(axinf)
+
+    fig.canvas.mpl_connect('button_press_event', onclick)
+
+    new_edges = edges.copy()
+    new_edges['left_press_idx'] = 0
+    new_edges['right_press_idx'] = 0
+
+    new_edges['low_level_ini'] = -1
+    new_edges['low_level_end'] = -1
+
+    new_edges['high_level_ini'] = -1
+    new_edges['high_level_end'] = -1
+
+    legend_elements = [Patch(facecolor='green', label='Low Pc level'),
+                       Patch(facecolor='red', label='High Pc level')]
+    ax.legend(handles=legend_elements)
+
+    figManager = plt.get_current_fig_manager()
+    figManager.window.showMaximized()
+
+    plt.show(block=False)
+
+    while plt.fignum_exists(fig.number):
+        plt.pause(0.0001)
+
+        if new_btn_press:
+            new_btn_press = False
+
+            if btn_press_button == 1:
+                if new_edges['left_press_idx'] % 2 == 0:
+                    new_edges['low_level_ini'] = int(btn_press_x_position)
+                else:
+                    new_edges['low_level_end'] = int(btn_press_x_position)
+
+                new_edges['left_press_idx'] += 1
+
+            elif btn_press_button == 3:
+                if new_edges['right_press_idx'] % 2 == 0:
+                    new_edges['high_level_ini'] = int(btn_press_x_position)
+                else:
+                    new_edges['high_level_end'] = int(btn_press_x_position)
+
+                new_edges['right_press_idx'] += 1
+
+        if new_edges['left_press_idx'] + new_edges['right_press_idx'] > 0:
+            while len(new_edges['plots']):
+                new_edges['plots'].pop(0).remove()
+
+            bottom, top = ax.get_ylim()
+
+            if new_edges['left_press_idx'] > 0:
+                if new_edges['low_level_ini'] != -1 and new_edges['low_level_end'] != -1:
+                    ax.axvspan(new_edges['low_level_ini'], new_edges['low_level_end'], ymin=0.0, ymax=1.0, alpha=0.5, color='g')
+                    t = ax.text((new_edges['low_level_ini'] + new_edges['low_level_ini']) / 3 + new_edges['low_level_ini'], (top - bottom) / 2 + bottom, 'niveau\nbas', fontsize=5, ha='center')
+                    edges['plots'].append(t)
+
+                elif new_edges['low_level_ini'] == -1 and new_edges['low_level_end'] != -1:
+                    ax.axvline(x=new_edges['low_level_end'], color='g')
+                    t = ax.text(new_edges['low_level_end'], bottom, 'fin niveau bas', rotation='vertical', fontsize=5)
+                    edges['plots'].append(t)
+
+                elif new_edges['low_level_ini'] != -1 and new_edges['low_level_end'] == -1:
+                    ax.axvline(x=new_edges['low_level_ini'], color='g')
+                    t = ax.text(new_edges['low_level_ini'], bottom, 'début niveau bas', rotation='vertical', fontsize=5)
+                    edges['plots'].append(t)
+
+            if new_edges['right_press_idx'] > 0:
+                if new_edges['high_level_ini'] != -1 and new_edges['high_level_end'] != -1:
+                    ax.axvspan(new_edges['high_level_ini'], new_edges['high_level_end'], ymin=0.0, ymax=1.0, alpha=0.5, color='r')
+                    t = ax.text((new_edges['high_level_end'] + new_edges['high_level_ini']) / 3 + new_edges['high_level_ini'], (top - bottom) / 2 + bottom, 'niveau\nhaut', fontsize=5, ha='center')
+                    edges['plots'].append(t)
+
+                elif new_edges['high_level_ini'] == -1 and new_edges['high_level_end'] != -1:
+                    ax.axvline(x=new_edges['high_level_end'], color='r')
+                    t = ax.text(new_edges['high_level_end'], bottom, 'fin niveau haut', rotation='vertical', fontsize=5)
+                    edges['plots'].append(t)
+
+                elif new_edges['high_level_ini'] != -1 and new_edges['high_level_end'] == -1:
+                    ax.axvline(x=new_edges['high_level_ini'], color='r')
+                    t = ax.text(new_edges['high_level_ini'], bottom, 'début niveau haut', rotation='vertical', fontsize=5)
+                    edges['plots'].append(t)
+
+    # set high and low values after manual checking
+    if new_edges['left_press_idx'] + new_edges['right_press_idx']:
+        high_val = np.mean(raw_data['values'].values[new_edges['high_level_ini']:new_edges['high_level_end']])
+        low_val = np.mean(raw_data['values'].values[new_edges['low_level_ini']:new_edges['low_level_end']])
+    else:
+        high_val, low_val = np.nanmean(high_vals), np.nanmean(low_vals)
+
+    results = {'high_val': high_val, 'low_val': low_val, 'Pc': high_val - low_val}
+
+    return results
+
+
+if __name__ == "__main__":
+    file_path = get_file_name()
+
+    vals = get_pc_from_machining_file_unique_entry(file_path)
     print(vals)

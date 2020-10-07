@@ -7,7 +7,7 @@ from windows.windows_manager import set_user_window
 from utils.utils import load_config
 
 
-class UserGUI():
+class UserGUI:
     def __init__(self):
         if getattr(sys, 'frozen', False):
             application_path = os.path.dirname(sys.executable)
@@ -35,19 +35,18 @@ class UserGUI():
                 # self.tools_data = load_tools_data(operation)
 
                 # ask user to chose a tool from the predefined list in the config file
-                # general_parameters, action = set_user_window(self.app_name, "Caractéristiques de l'usinage", available_operations=self.available_operations)
-                general_parameters = {'operation': 'Fraisage', 'tool': 'Outil1', 'diameter': '1', 'n_teeth': '9', 'user_name': 'werth', 'date': '25/août/2020', 'lubrication': 'etz', 'comments': 'etzj'}
-                action = "next"
+                general_parameters, action = set_user_window(self.app_name, "Caractéristiques de l'usinage", available_operations=self.available_operations)
+                # general_parameters = {'operation': 'Fraisage', 'tool': 'Outil1', 'diameter': '1', 'n_teeth': '9', 'user_name': 'werth', 'date': '25/août/2020', 'lubrication': 'etz', 'comments': 'etzj'}; action = "next"
                 step = step + 1 if action == 'next' else step
 
             if step == 1:
                 #  Determination of Vc,min
-                # operation_parameters['vcmin'], action = set_user_window(self.app_name, "Vc min", general_parameters=general_parameters)
+                operation_parameters['vcmin'], action = set_user_window(self.app_name, "Vc min", general_parameters=general_parameters)
                 step = step + 1 if action == 'next' else step - 1
 
             if step == 2:
                 # Determination of the range hmin – hmax
-                # operation_parameters['fmin'], action = set_user_window(self.app_name, "f min", general_parameters=general_parameters)
+                operation_parameters['fmin'], action = set_user_window(self.app_name, "f min", general_parameters=general_parameters)
                 step = step + 1 if action == 'next' else step - 1
 
             if step == 3:
