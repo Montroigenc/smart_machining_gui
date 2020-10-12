@@ -15,6 +15,7 @@ from datetime import date
 import numpy as np
 import unidecode
 import random
+import json
 
 import matplotlib
 
@@ -116,8 +117,6 @@ class Window(tk.Tk):
 
         self.action = None
         self.debug = kwargs['debug'] if 'debug' in kwargs else False
-
-        # self.resizable(0, 0)
 
     def set_win_title(self, window_title):
         tk.Label(self, text=window_title, padx=5, pady=5, font='Helvetica 15 bold').pack(pady=15)
@@ -256,13 +255,18 @@ class Window(tk.Tk):
     def change_program_state(self, *args, **kwargs):
 
         for action in kwargs['actions']:
-            if action == 'select_file':
+            if 'select_file' in action:
                 filename = tk.filedialog.askopenfilename(initialdir="/", title="Sélectionner un fichier")
                 if filename != "":
-                    already_used = self.update_dynamic_row(filename, args[0].widget, **kwargs)
+                    if action == 'select_file_pc':
+                        already_used = self.update_dynamic_row(filename, args[0].widget, **kwargs)
 
-                    if not already_used:
-                        self.append_dynamic_row(root=[kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior)
+                        if not already_used:
+                            self.append_dynamic_row(root=[kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior)
+                    elif action == 'select_file_existing':
+                        self.result["file_name"] = filename
+                        # with open('data.txt') as json_file:
+                        #     data = json.load(filename)
 
             elif action == "get_data":
                 if self.target == "Caractéristiques de l'usinage":
@@ -341,15 +345,14 @@ class Window(tk.Tk):
 
                 self.action = action
 
-    def append_date(self, root=None, row_idx=0):
-        root = self if root is None else root
-        today = date.today()
+    def append_date(self, **kwargs):  # root=None, row_idx=0, data):
+        root = kwargs['root'] if 'root' in kwargs else self
+        row = kwargs['row'] if 'row' in kwargs else 0
 
         date_cell = tk.Frame(root, name='date')
         lab = tk.Label(root, width=25, text="Date du traitement :", padx=5, pady=5)
 
         day = tk.ttk.Combobox(date_cell, values=[i for i in range(1, 32)], width=2, name='day')
-        day.current(today.day - 1)
 
         month = tk.ttk.Combobox(date_cell, values=["janvier",
                                                    "février",
@@ -367,13 +370,20 @@ class Window(tk.Tk):
                                 width=8,
                                 name='month')
 
-        month.current(today.month - 1)
-
         year = tk.ttk.Combobox(date_cell, values=[i for i in range(2020, 2040)], width=4, name='year')
-        year.current(today.year - 2020)
 
-        lab.grid(row=row_idx, column=0)
-        date_cell.grid(row=row_idx, column=1)
+        if "date" not in kwargs["data"]["general_parameters"]:
+            today = date.today()
+            day.current(today.day - 1)
+            month.current(today.month - 1)
+            year.current(today.year - 2020)
+        else:
+            day.current(kwargs["data"]["general_parameters"]["day"])
+            month.current(kwargs["data"]["general_parameters"]["month"])
+            year.current(kwargs["data"]["general_parameters"]["year"])
+
+        lab.grid(row=row, column=0)
+        date_cell.grid(row=row, column=1)
 
         day.pack(side=tk.LEFT, pady=1)
         month.pack(side=tk.LEFT, padx=1, pady=1)
@@ -436,6 +446,9 @@ class Window(tk.Tk):
 
         ent_name = kwargs['ent_name'] if 'ent_name' in kwargs else f'{unidecode.unidecode(text.lower())}'
         ent = tk.Entry(root, width=25, name=ent_name, justify='center')
+
+        if 'ent_name' in kwargs["data"]["general_parameters"]:
+            ent.insert(0, f"{kwargs['ent_field']}")
 
         if self.debug:
             ent.insert(0, f'{random.randint(1, 10)}')

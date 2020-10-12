@@ -43,7 +43,7 @@ def parse_res(win):
     return res
 
 
-def set_general_machining_characteristics(win):
+def set_general_machining_characteristics(win, data):
     frame = tk.Frame(win, name='general_machining_characteristics')
 
     # Set text entries
@@ -53,19 +53,21 @@ def set_general_machining_characteristics(win):
     # win.append_label_row(["Nombre de dents :", ""], root=frame, row=4, names=['', 'n_teeth'])
 
     win.append_label_row(["Opération :", "Fraisage"], root=frame, row=1, names=['', 'operation'])
-    win.append_entry_row("Outil", root=frame, row=2, ent_name='tool')
-    win.append_entry_row("Diamètre", root=frame, row=3, ent_name='diameter')
-    win.append_entry_row("Nombre de dents", root=frame, row=4, ent_name='n_teeth')
-
-    win.append_entry_row("Opérateur", row=5, root=frame, ent_name='user_name')
-    win.append_date(root=frame, row_idx=6)
-    win.append_entry_row("Lubrification", row=7, root=frame, ent_name='lubrication')
-    win.append_entry_row("Commentaires", row=8, root=frame, ent_name='comments')
+    win.append_entry_row("Outil", root=frame, row=2, ent_name='tool', data=data)
+    win.append_entry_row("Diamètre", root=frame, row=3, ent_name='diameter', data=data)
+    win.append_entry_row("Nombre de dents", root=frame, row=4, ent_name='n_teeth', data=data)
+    win.append_entry_row("Opérateur", row=5, root=frame, ent_name='user_name', data=data)
+    win.append_date(root=frame, row_idx=6, data=data)
+    win.append_entry_row("Lubrification", row=7, root=frame, ent_name='lubrication', data=data)
+    win.append_entry_row("Commentaires", row=8, root=frame, ent_name='comments', data=data)
 
     frame.pack(padx=20, pady=20)
 
     # Set buttons
-    tk.Button(win, text=" Suivant ", command=lambda **kwargs: win.change_program_state(actions=["get_data", "next"], action_root=[frame]), pady=5).pack(pady=10)
+    buttons_frame = tk.Frame(win, name='buttons')
+    tk.Button(buttons_frame, text=" Suivant ", command=lambda **kwargs: win.change_program_state(actions=["get_data", "next"], action_root=[frame]), pady=5).grid(row=0, column=0)
+    tk.Button(buttons_frame, text=" Télécharger un document existant ", command=lambda **kwargs: win.change_program_state(actions=["select_file_existing", "back"], action_root=[frame]), pady=5).grid(row=0, column=1)
+    buttons_frame.pack(padx=20, pady=20)
 
     win()
 
@@ -220,13 +222,13 @@ def show_graphic(data, win):
     btns_frame.pack(side=tk.BOTTOM, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
 
 
-def set_operation_window(win, target):
+def set_operation_window(win, target, data):
     debug = False
     step = 0
     entries, dynamic_table_headers = get_operation_window_headers(target)
 
     while 0 <= step < 3:
-        if step == 0:
+        if step == 1:
             if debug:
                 win.result['input_parameters'] = {'engagement axial ap (mm)': '1', 'engagement radial ae (mm)': '2', 'avance par dent fz (mm/tr)': '3'}
                 step = step + 1
@@ -263,10 +265,9 @@ def set_user_window(app_name, target, **kwargs):
     # kwargs['debug'] = True
     win = Window(app_name, window_title=f'Détermination de {target}', target=target, **kwargs)
     if target == "Caractéristiques de l'usinage":
-        set_general_machining_characteristics(win)
-
+        set_general_machining_characteristics(win, kwargs["data"])
     else:
-        set_operation_window(win, target)
+        set_operation_window(win, target, kwargs["data"])
 
     res = win.result
     action = win.action
