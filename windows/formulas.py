@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def compute_dynamic_table(target, win):
+def compute_dynamic_table(target, win, debug=False):
     res = {'x': [], 'y': [], 'statut': []}
     table_params = win.result['dynamic_parameters']
 
@@ -18,13 +18,14 @@ def compute_dynamic_table(target, win):
                 # ae, fz = 10 - row_idx, 10 - row_idx
                 ae = float(win.result['input_parameters']['engagement radial ae (mm)'])
                 fz = float(table_params[f'avance par dent fz (mm/tr)_{row_idx}'])
-                d = win.general_parameters['diameter']
+                d = float(win.data['general_parameters']['diameter'])
 
-                # h = compute_h(ae, fz, d)
-                h = 10 - row_idx
-
-                Wc = (row_idx - 1) ** 2
-                # Wc = float(table_params[f"wc (w)_{row_idx}"])
+                if debug:
+                    h = 10 - row_idx
+                    Wc = (row_idx - 1) ** 2
+                else:
+                    h = compute_h(ae, fz, d)
+                    Wc = float(table_params[f"wc (w)_{row_idx}"])
 
                 res['x'].append(h)
                 res['y'].append(Wc)
@@ -49,21 +50,14 @@ def compute_dynamic_table(target, win):
 
                     ap = float(win.result['input_parameters']['engagement axial ap (mm)'])
                     ae = float(win.result['input_parameters']['engagement radial ae (mm)'])
-                    AD = ap * ae
+                    # AD = ap * ae
 
-                    z = float(win.general_parameters['n_teeth'])
-                    d = float(win.general_parameters['diameter'])
+                    z = float(win.data['general_parameters']['n_teeth'])
+                    d = float(win.data['general_parameters']['diameter'])
                     Vc = float(table_params[f"vitesse de coupe vc (m/min)_{row_idx}"])
 
                     h = float(table_params[f"epaisseur de coupe h (mm)_{row_idx}"])
-                    fz = get_fz_from_h(d, h, ae)
-
-
-                    # Q = AD * Vf / 1000
-                    # or:
-                    # Q = AD * fz * Zu * n / 1000
-                    # or:
-                    # Q = AD * fz * Zu * Vc / np.pi / d
+                    # fz = get_fz_from_h(d, h, ae)
 
                     Q = compute_Q(Vc, ae, ap, h, d, z)
 
@@ -75,12 +69,12 @@ def compute_dynamic_table(target, win):
                     # res['statut'].append(statut)
 
             elif target == 'Vc min':
-                Vc = row_idx
-                # Pc = np.exp(-row_idx/4)
-                Pc = 50 * np.exp(-row_idx)  # + row_idx
-
-                # Vc = float(table_params[f"vitesse de coupe vc (m/min)_{row_idx}"])
-                # Pc = float(table_params[f"pc (w)_{row_idx}"])
+                if debug:
+                    Vc = row_idx
+                    Pc = 50 * np.exp(-row_idx)  # + row_idx
+                else:
+                    Vc = float(table_params[f"vitesse de coupe vc (m/min)_{row_idx}"])
+                    Pc = float(table_params[f"pc (w)_{row_idx}"])
 
                 res['x'].append(Vc)
                 res['y'].append(Pc)
@@ -89,6 +83,11 @@ def compute_dynamic_table(target, win):
     # res['min_target_value'] = np.argmin(dydx)
     # res['best_range_max'] = res['best_range_min'] - 1
     # print(dydx)
+
+    res = np.asarray([res['x'], res['y']])
+    order_idxs = np.argsort(res[0])
+    res[0] = res[0][order_idxs]
+    res[1] = res[1][order_idxs]
 
     return res
 

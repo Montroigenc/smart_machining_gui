@@ -39,7 +39,8 @@ def load_config(filePath):
             l = l.split(" = ")
             config_params["{}".format(l[0])] = l[1]
 
-        print("{} config file loaded".format(filePath))
+        print(f"{filePath} config file loaded")
+        print(f"{config_params}")
         return config_params
     else:
         root = tk.Tk()
@@ -64,7 +65,6 @@ def load_existent_data(filePath):
         root = tk.Tk()
         root.withdraw()
         messagebox.showerror("Error", "Le fichier n'est pas présent dans {}".format(filePath))
-
 
 
 if __name__ == "__main__":

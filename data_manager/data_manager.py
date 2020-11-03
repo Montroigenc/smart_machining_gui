@@ -252,7 +252,7 @@ def get_pc_from_machining_file(file_path_):
     return results
 
 
-def get_pc_from_machining_file_unique_entry(file_path_):
+def get_pc_from_machining_file_unique_entry(file_path_, show=True):
     global new_btn_press, btn_press_x_position, btn_press_button
 
     def onclick(event):
@@ -344,75 +344,81 @@ def get_pc_from_machining_file_unique_entry(file_path_):
                        Patch(facecolor='red', label='High Pc level')]
     ax.legend(handles=legend_elements)
 
-    figManager = plt.get_current_fig_manager()
-    figManager.window.showMaximized()
+    # figManager = plt.get_current_fig_manager()
+    # figManager.window.showMaximized()
 
-    plt.show(block=False)
+    if show:
+        plt.show(block=False)
 
-    while plt.fignum_exists(fig.number):
-        plt.pause(0.0001)
+        while plt.fignum_exists(fig.number):
+            plt.pause(0.0001)
 
-        if new_btn_press:
-            new_btn_press = False
+            if new_btn_press:
+                new_btn_press = False
 
-            if btn_press_button == 1:
-                if new_edges['left_press_idx'] % 2 == 0:
-                    new_edges['low_level_ini'] = int(btn_press_x_position)
-                else:
-                    new_edges['low_level_end'] = int(btn_press_x_position)
+                if btn_press_button == 1:
+                    if new_edges['left_press_idx'] % 2 == 0:
+                        new_edges['low_level_ini'] = int(btn_press_x_position)
+                    else:
+                        new_edges['low_level_end'] = int(btn_press_x_position)
 
-                new_edges['left_press_idx'] += 1
+                    new_edges['left_press_idx'] += 1
 
-            elif btn_press_button == 3:
-                if new_edges['right_press_idx'] % 2 == 0:
-                    new_edges['high_level_ini'] = int(btn_press_x_position)
-                else:
-                    new_edges['high_level_end'] = int(btn_press_x_position)
+                elif btn_press_button == 3:
+                    if new_edges['right_press_idx'] % 2 == 0:
+                        new_edges['high_level_ini'] = int(btn_press_x_position)
+                    else:
+                        new_edges['high_level_end'] = int(btn_press_x_position)
 
-                new_edges['right_press_idx'] += 1
+                    new_edges['right_press_idx'] += 1
 
-        if new_edges['left_press_idx'] + new_edges['right_press_idx'] > 0:
-            while len(new_edges['plots']):
-                new_edges['plots'].pop(0).remove()
+            if new_edges['left_press_idx'] + new_edges['right_press_idx'] > 0:
+                while len(new_edges['plots']):
+                    new_edges['plots'].pop(0).remove()
 
-            bottom, top = ax.get_ylim()
+                bottom, top = ax.get_ylim()
 
-            if new_edges['left_press_idx'] > 0:
-                if new_edges['low_level_ini'] != -1 and new_edges['low_level_end'] != -1:
-                    ax.axvspan(new_edges['low_level_ini'], new_edges['low_level_end'], ymin=0.0, ymax=1.0, alpha=0.5, color='g')
-                    t = ax.text((new_edges['low_level_ini'] + new_edges['low_level_ini']) / 3 + new_edges['low_level_ini'], (top - bottom) / 2 + bottom, 'niveau\nbas', fontsize=5, ha='center')
-                    edges['plots'].append(t)
+                if new_edges['left_press_idx'] > 0:
+                    if new_edges['low_level_ini'] != -1 and new_edges['low_level_end'] != -1:
+                        ax.axvspan(new_edges['low_level_ini'], new_edges['low_level_end'], ymin=0.0, ymax=1.0, alpha=0.5, color='g')
+                        t = ax.text((new_edges['low_level_ini'] + new_edges['low_level_ini']) / 3 + new_edges['low_level_ini'], (top - bottom) / 2 + bottom, 'niveau\nbas', fontsize=5, ha='center')
+                        edges['plots'].append(t)
 
-                elif new_edges['low_level_ini'] == -1 and new_edges['low_level_end'] != -1:
-                    ax.axvline(x=new_edges['low_level_end'], color='g')
-                    t = ax.text(new_edges['low_level_end'], bottom, 'fin niveau bas', rotation='vertical', fontsize=5)
-                    edges['plots'].append(t)
+                    elif new_edges['low_level_ini'] == -1 and new_edges['low_level_end'] != -1:
+                        ax.axvline(x=new_edges['low_level_end'], color='g')
+                        t = ax.text(new_edges['low_level_end'], bottom, 'fin niveau bas', rotation='vertical', fontsize=5)
+                        edges['plots'].append(t)
 
-                elif new_edges['low_level_ini'] != -1 and new_edges['low_level_end'] == -1:
-                    ax.axvline(x=new_edges['low_level_ini'], color='g')
-                    t = ax.text(new_edges['low_level_ini'], bottom, 'début niveau bas', rotation='vertical', fontsize=5)
-                    edges['plots'].append(t)
+                    elif new_edges['low_level_ini'] != -1 and new_edges['low_level_end'] == -1:
+                        ax.axvline(x=new_edges['low_level_ini'], color='g')
+                        t = ax.text(new_edges['low_level_ini'], bottom, 'début niveau bas', rotation='vertical', fontsize=5)
+                        edges['plots'].append(t)
 
-            if new_edges['right_press_idx'] > 0:
-                if new_edges['high_level_ini'] != -1 and new_edges['high_level_end'] != -1:
-                    ax.axvspan(new_edges['high_level_ini'], new_edges['high_level_end'], ymin=0.0, ymax=1.0, alpha=0.5, color='r')
-                    t = ax.text((new_edges['high_level_end'] + new_edges['high_level_ini']) / 3 + new_edges['high_level_ini'], (top - bottom) / 2 + bottom, 'niveau\nhaut', fontsize=5, ha='center')
-                    edges['plots'].append(t)
+                if new_edges['right_press_idx'] > 0:
+                    if new_edges['high_level_ini'] != -1 and new_edges['high_level_end'] != -1:
+                        ax.axvspan(new_edges['high_level_ini'], new_edges['high_level_end'], ymin=0.0, ymax=1.0, alpha=0.5, color='r')
+                        t = ax.text((new_edges['high_level_end'] + new_edges['high_level_ini']) / 3 + new_edges['high_level_ini'], (top - bottom) / 2 + bottom, 'niveau\nhaut', fontsize=5, ha='center')
+                        edges['plots'].append(t)
 
-                elif new_edges['high_level_ini'] == -1 and new_edges['high_level_end'] != -1:
-                    ax.axvline(x=new_edges['high_level_end'], color='r')
-                    t = ax.text(new_edges['high_level_end'], bottom, 'fin niveau haut', rotation='vertical', fontsize=5)
-                    edges['plots'].append(t)
+                    elif new_edges['high_level_ini'] == -1 and new_edges['high_level_end'] != -1:
+                        ax.axvline(x=new_edges['high_level_end'], color='r')
+                        t = ax.text(new_edges['high_level_end'], bottom, 'fin niveau haut', rotation='vertical', fontsize=5)
+                        edges['plots'].append(t)
 
-                elif new_edges['high_level_ini'] != -1 and new_edges['high_level_end'] == -1:
-                    ax.axvline(x=new_edges['high_level_ini'], color='r')
-                    t = ax.text(new_edges['high_level_ini'], bottom, 'début niveau haut', rotation='vertical', fontsize=5)
-                    edges['plots'].append(t)
+                    elif new_edges['high_level_ini'] != -1 and new_edges['high_level_end'] == -1:
+                        ax.axvline(x=new_edges['high_level_ini'], color='r')
+                        t = ax.text(new_edges['high_level_ini'], bottom, 'début niveau haut', rotation='vertical', fontsize=5)
+                        edges['plots'].append(t)
 
     # set high and low values after manual checking
     if new_edges['left_press_idx'] + new_edges['right_press_idx']:
-        high_val = np.mean(raw_data['values'].values[new_edges['high_level_ini']:new_edges['high_level_end']])
-        low_val = np.mean(raw_data['values'].values[new_edges['low_level_ini']:new_edges['low_level_end']])
+        high_level_ini_idx = (np.abs(raw_data['time'].values - new_edges['high_level_ini'])).argmin()
+        high_level_end_idx = (np.abs(raw_data['time'].values - new_edges['high_level_end'])).argmin()
+        low_level_ini_idx = (np.abs(raw_data['time'].values - new_edges['low_level_ini'])).argmin()
+        low_level_end_idx = (np.abs(raw_data['time'].values - new_edges['low_level_end'])).argmin()
+
+        high_val = np.nanmean(raw_data['values'].values[high_level_ini_idx:high_level_end_idx])
+        low_val = np.nanmean(raw_data['values'].values[low_level_ini_idx:low_level_end_idx])
     else:
         high_val, low_val = np.nanmean(high_vals), np.nanmean(low_vals)
 

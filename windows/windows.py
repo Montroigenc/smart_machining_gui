@@ -1,17 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as TTK
 from tkinter import messagebox, filedialog
-# import cv2
-# import PIL.Image, PIL.ImageTk
-# import pyautogui
-# import os
-# import glob
-# import ntpath
 from datetime import date
-# import time
-# import sys
-# import traceback
-# import shutil
 import numpy as np
 import unidecode
 import random
@@ -26,6 +16,8 @@ from matplotlib.figure import Figure
 from utils.utils import load_tools_data
 from data_manager.data_manager import get_pc_from_machining_file_unique_entry
 from windows.formulas import compute_Q, compute_Wc, compute_h, compute_N, compute_Vf
+
+dummy_pc_file = "C:/Users/RI/Desktop/smart_machining/Test full.csv"
 
 
 class VerticalScrolledFrame(tk.Frame):
@@ -107,16 +99,17 @@ class Window(tk.Tk):
         self.manual_exit = False
         self.tools_data = []
         self.available_operations = kwargs['available_operations'] if 'available_operations' in kwargs else None
-        self.general_parameters = kwargs['general_parameters'] if 'general_parameters' in kwargs else None
+        # self.general_parameters = kwargs['general_parameters'] if 'general_parameters' in kwargs else None
+
+        self.data = kwargs['data'] if 'data' in kwargs else None
 
         self.result = dict()
 
-        # self.AD_max = None
-        # self.Q_max = None
         self.max_params = {'AD': -1, 'Q': -1}
 
         self.action = None
         self.debug = kwargs['debug'] if 'debug' in kwargs else False
+        self.name = None
 
     def set_win_title(self, window_title):
         tk.Label(self, text=window_title, padx=5, pady=5, font='Helvetica 15 bold').pack(pady=15)
@@ -174,16 +167,57 @@ class Window(tk.Tk):
             target_widgets = np.asarray([kw[1]['text'] for kw in root.children.items() if f'{self.target.split()[0].lower()}_' in kw[0].split('.')[-1]])
             status_list = [kw[1].get() == 'OK' for kw in root.children.items() if "statut_" in kw[0]]
 
-            ok_values = target_widgets[status_list]
+            ok_values = target_widgets[status_list].astype('float')
 
             if len(ok_values) > 0:
-                self.max_params[self.target.split()[0]] = np.max(ok_values)
+                self.max_params[self.target.split()[0]] = ok_values.max()
                 self.children['search_param'].configure(text=f'{self.target} = {np.max(ok_values):.4f}')
+
+    def get_table_values(self, val_names, widgets_):
+        vals = []
+        for val_name in val_names:
+            if val_name == 'd':
+                vals.append(float(self.data['general_parameters']['diameter']))
+            elif val_name == 'z':
+                vals.append(float(self.data['general_parameters']['n_teeth']))
+            else:
+                if val_name == 'ap':
+                    complete_val_name = 'engagement axial ap (mm)'
+                    short_val_name = 'ap (mm)'
+                elif val_name == 'ae':
+                    complete_val_name = 'engagement radial ae (mm)'
+                    short_val_name = 'ae (mm)'
+                elif val_name == 'Vc':
+                    complete_val_name = 'vitesse de coupe vc (m/min)'
+                    short_val_name = 'vc (m/min)'
+                elif val_name == 'fz':
+                    complete_val_name = 'avance par dent fz (mm/tr)'
+                    short_val_name = 'fz (mm/tr)'
+
+                vals.append(float(self.result['input_parameters'][complete_val_name]) \
+                                if complete_val_name in self.result['input_parameters'].keys() else \
+                                float([w for w in widgets_ if short_val_name in str(w).split('.')[-1]][0].get()))
+
+        return vals
 
     def update_dynamic_row(self, filename, btn, **kwargs):
         root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
 
         row = btn.grid_info()['row']
+
+        # Get all widgets of the pressed button row
+        widgets = [kv for kv in root.children.values() if kv.grid_info()['row'] == row and kv.grid_info()['column'] > 0]
+
+        # CHECK IF REQUIRED ENTRIES ARE ALREADY FILLED
+        empty_entries = []
+        for w in widgets:
+            if isinstance(w, tk.Entry):
+                if w.get() == '':
+                    empty_entries.append(str(w).split('.')[-1])
+
+        if len(empty_entries) > 0:
+            tk.messagebox.showerror("Error", f"Les champs {','.join(empty_entries)} doivent être remplis", icon='error')
+            return True
 
         # Check if there was already a selected file
         already_used = btn['text'] != 'Parcourir'
@@ -191,40 +225,32 @@ class Window(tk.Tk):
         # Set green and text filename in button
         btn.configure(fg="green", text=filename)
 
-        # Get all widgets of the pressed button row
-        widgets = [kv for kv in root.children.values() if kv.grid_info()['row'] == row and kv.grid_info()['column'] > 0]
-
         # Set Pc (W)
-        file_data = get_pc_from_machining_file_unique_entry(filename)
-        Pc = float(file_data['Pc'])
-        # Pc = np.random.randint(100, 1000)
-        [w for w in widgets if 'pc (w)' in str(w).split('.')[-1]][0].configure(text=Pc)
+        if self.data['debug'] > 1:
+            Pc = np.random.randint(10, 100)
+        else:
+            file_data = get_pc_from_machining_file_unique_entry(filename, self.data['debug'] < 2)
+            Pc = float(file_data['Pc'])
 
-        d = float(self.general_parameters['diameter'])
-        z = float(self.general_parameters['n_teeth'])
+        [w for w in widgets if 'pc (w)' in str(w).split('.')[-1]][0].configure(text=f'{Pc:.2f}')
 
-        ap = float(self.result['input_parameters']['engagement axial ap (mm)']) if 'engagement axial ap (mm)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'ap (mm)' in str(w).split('.')[-1]][0].get())
-        ae = float(self.result['input_parameters']['engagement radial ae (mm)']) if 'engagement radial ae (mm)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'ae (mm)' in str(w).split('.')[-1]][0].get())
-
-        Vc = float(self.result['input_parameters']['vitesse de coupe vc (m/min)']) if 'vitesse de coupe vc (m/min)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'vc (m/min)' in str(w).split('.')[-1]][0].get())
-
-        fz = float(self.result['input_parameters']['avance par dent fz (mm/tr)']) if 'avance par dent fz (mm/tr)' in self.result['input_parameters'].keys() else float([w for w in widgets if 'fz (mm/tr)' in str(w).split('.')[-1]][0].get())
+        d, z, ap, ae, Vc, fz = self.get_table_values(['d', 'z', 'ap', 'ae', 'Vc', 'fz'], widgets)
 
         for widget in widgets:
             widget_name = str(widget).split(".")[-1]
             if 'wc (w)' in widget_name:
-                widget.configure(text=compute_Wc(d, Pc, ap, ae, z, fz, Vc))
+                widget.configure(text=f'{compute_Wc(d, Pc, ap, ae, z, fz, Vc):.4f}')
 
             elif 'vitesse de broche n' in widget_name:
                 N = compute_N(Vc, d)
-                widget.configure(text=N)
+                widget.configure(text=f'{N:.4f}')
 
             elif 'vf' in widget_name:
                 Vf = compute_Vf(N, fz, z)
-                widget.configure(text=Vf)
+                widget.configure(text=f'{Vf:.4f}')
 
             elif 'h (mm)' in widget_name:
-                widget.configure(text=compute_h(ae, fz, d))
+                widget.configure(text=f'{compute_h(ae, fz, d):.4f}')
 
             elif 'statut' in widget_name:
                 # widget.configure(text="OK")
@@ -232,11 +258,11 @@ class Window(tk.Tk):
                 widget.insert(0, 'OK')
 
             elif 'ad_' in widget_name:
-                widget.configure(text=ap * ae)
+                widget.configure(text=f'{ap * ae:.4f}')
 
             elif 'q_' in widget_name:
                 AD = ap * ae
-                widget.configure(text=compute_Q(AD, Vf))
+                widget.configure(text=f'{compute_Q(AD, Vf):.4f}')
 
             # elif 'Label' in str(type(widget)):
             #     if 'statut' in widget_name:
@@ -253,7 +279,6 @@ class Window(tk.Tk):
         return already_used
 
     def change_program_state(self, *args, **kwargs):
-
         for action in kwargs['actions']:
             if 'select_file' in action:
                 filename = tk.filedialog.askopenfilename(initialdir="/", title="Sélectionner un fichier")
@@ -265,8 +290,6 @@ class Window(tk.Tk):
                             self.append_dynamic_row(root=[kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior)
                     elif action == 'select_file_existing':
                         self.result["file_name"] = filename
-                        # with open('data.txt') as json_file:
-                        #     data = json.load(filename)
 
             elif action == "get_data":
                 if self.target == "Caractéristiques de l'usinage":
@@ -284,6 +307,9 @@ class Window(tk.Tk):
                     # for table in [self.children['input_parameters'], root[0].interior]:
                     #     self.result.update(self.get_data(table.children.items()))
 
+            elif action == "get_target":
+                self.result[self.target] = float(self.children['data_frame'].children['results_frame'].children[self.target.lower()].get())
+
             elif action == "compute_pc":
                 dynamic_parameters = [i for i in kwargs['action_root'] if 'dynamic' in str(i)][0]
                 self.result['computation_results'] = self.dynamic_table_validation(dynamic_parameters)
@@ -298,9 +324,6 @@ class Window(tk.Tk):
 
                 for child in widgets2delete:
                     child.destroy()
-
-                x = 0
-                x = 1
 
                 for child in root.grid_slaves()[::-1]:
                     # if int(child._name.split('_')[1]) >= n:
@@ -325,10 +348,6 @@ class Window(tk.Tk):
                 if not new_line_not_needed:
                     self.append_dynamic_row(root=root)
 
-                x = 0
-                x = 1
-                x = 2
-
             elif action == "back" or action == "next":
                 # root = kwargs['root'] if 'root' in kwargs else self
 
@@ -345,7 +364,7 @@ class Window(tk.Tk):
 
                 self.action = action
 
-    def append_date(self, **kwargs):  # root=None, row_idx=0, data):
+    def append_date(self, **kwargs):
         root = kwargs['root'] if 'root' in kwargs else self
         row = kwargs['row'] if 'row' in kwargs else 0
 
@@ -354,33 +373,36 @@ class Window(tk.Tk):
 
         day = tk.ttk.Combobox(date_cell, values=[i for i in range(1, 32)], width=2, name='day')
 
-        month = tk.ttk.Combobox(date_cell, values=["janvier",
-                                                   "février",
-                                                   "mars",
-                                                   "avril",
-                                                   "mai",
-                                                   "juin",
-                                                   "juillet",
-                                                   "août",
-                                                   "septembre",
-                                                   "octobre",
-                                                   "novembre",
-                                                   "décembre"],
+        months_french = ["janvier",
+                         "février",
+                         "mars",
+                         "avril",
+                         "mai",
+                         "juin",
+                         "juillet",
+                         "août",
+                         "septembre",
+                         "octobre",
+                         "novembre",
+                         "décembre"]
+
+        month = tk.ttk.Combobox(date_cell, values=months_french,
                                 state="readonly",
                                 width=8,
                                 name='month')
 
         year = tk.ttk.Combobox(date_cell, values=[i for i in range(2020, 2040)], width=4, name='year')
 
-        if "date" not in kwargs["data"]["general_parameters"]:
+        if "date" not in self.data["general_parameters"]:
             today = date.today()
             day.current(today.day - 1)
             month.current(today.month - 1)
             year.current(today.year - 2020)
         else:
-            day.current(kwargs["data"]["general_parameters"]["day"])
-            month.current(kwargs["data"]["general_parameters"]["month"])
-            year.current(kwargs["data"]["general_parameters"]["year"])
+            day_loaded, month_loaded, year_loaded = self.data["general_parameters"]["date"].split('/')
+            day.current(int(day_loaded) - 1)
+            month.current(months_french.index(month_loaded))
+            year.current(int(year_loaded) - 2020)
 
         lab.grid(row=row, column=0)
         date_cell.grid(row=row, column=1)
@@ -447,10 +469,10 @@ class Window(tk.Tk):
         ent_name = kwargs['ent_name'] if 'ent_name' in kwargs else f'{unidecode.unidecode(text.lower())}'
         ent = tk.Entry(root, width=25, name=ent_name, justify='center')
 
-        if 'ent_name' in kwargs["data"]["general_parameters"]:
+        if 'ent_name' in self.data["general_parameters"]:
             ent.insert(0, f"{kwargs['ent_field']}")
 
-        if self.debug:
+        elif self.data["debug"]:
             ent.insert(0, f'{random.randint(1, 10)}')
 
         ent.grid(row=row, column=1)
@@ -463,7 +485,7 @@ class Window(tk.Tk):
             name = kwargs['names'][i] if 'names' in kwargs else f"label_r{row}c{i}"
             if 'header' in kwargs:
                 # tk.Label(root, text=h, width=22, font='Helvetica 11 bold', bg='gray', name=name).grid(row=row, column=i)
-                tk.Label(root, text=h, font='Helvetica 11 bold', bg='gray', name=name).grid(row=row, column=i, sticky=tk.N+tk.S+tk.E+tk.W)
+                tk.Label(root, text=h, font='Helvetica 11 bold', bg='gray', name=name).grid(row=row, column=i, sticky=tk.N + tk.S + tk.E + tk.W)
             else:
                 tk.Label(root, text=h, width=22, name=name).grid(row=row, column=i)
 
@@ -481,12 +503,12 @@ class Window(tk.Tk):
 
             if key == "Fichier de mesure":
                 btn = tk.Button(root, text="Parcourir", name=name)
-                btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['select_file']))
+                btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['select_file_pc']))
                 btn.grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
             elif key in ['Engagement axial ap (mm)', 'Engagement radial ae (mm)', "Vitesse de coupe Vc (m/min)", "Avance par dent fz (mm/tr)", "Statut"]:
                 ent = tk.Entry(root, width=25, name=name, justify='center')
-                if self.debug:
+                if self.data['debug']:
                     ent.insert(0, f'{random.randint(1, 10)}')
 
                 ent.grid(row=row, column=col_idx + 1, pady=5, padx=0)
@@ -499,8 +521,9 @@ class Window(tk.Tk):
             else:
                 tk.Label(root, text='...', name=name).grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
-        if self.debug:
-            self.update_dynamic_row("dummy_file", btn, **kwargs)
+        if self.data['debug'] > 1:
+            # self.update_dynamic_row("dummy_file", btn, **kwargs)
+            self.update_dynamic_row(dummy_pc_file, btn, **kwargs)
 
     def user_exit(self):
         selection = tk.messagebox.askquestion("quitter l'application", "Voulez-vous vraiment quitter l'application?", icon='warning')

@@ -1,25 +1,10 @@
 import tkinter as tk
-# import tkinter.ttk as TTK
-# from tkinter import messagebox, filedialog
-# import cv2
-# import PIL.Image, PIL.ImageTk
-# import pyautogui
-# import os
-# import glob
-# import ntpath
-# from datetime import date
-# import time
+# import matplotlib
 # import sys
-# import traceback
-# import shutil
-# import numpy as np
-# import unidecode
 
-import matplotlib
-
-matplotlib.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.figure import Figure
+# matplotlib.use("TkAgg")
+# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+# from matplotlib.figure import Figure
 
 from windows.windows import Window, VerticalScrolledFrame, GraphFrame
 from windows.formulas import *
@@ -43,7 +28,7 @@ def parse_res(win):
     return res
 
 
-def set_general_machining_characteristics(win, data):
+def set_general_machining_characteristics(win):
     frame = tk.Frame(win, name='general_machining_characteristics')
 
     # Set text entries
@@ -53,13 +38,13 @@ def set_general_machining_characteristics(win, data):
     # win.append_label_row(["Nombre de dents :", ""], root=frame, row=4, names=['', 'n_teeth'])
 
     win.append_label_row(["Opération :", "Fraisage"], root=frame, row=1, names=['', 'operation'])
-    win.append_entry_row("Outil", root=frame, row=2, ent_name='tool', data=data)
-    win.append_entry_row("Diamètre", root=frame, row=3, ent_name='diameter', data=data)
-    win.append_entry_row("Nombre de dents", root=frame, row=4, ent_name='n_teeth', data=data)
-    win.append_entry_row("Opérateur", row=5, root=frame, ent_name='user_name', data=data)
-    win.append_date(root=frame, row_idx=6, data=data)
-    win.append_entry_row("Lubrification", row=7, root=frame, ent_name='lubrication', data=data)
-    win.append_entry_row("Commentaires", row=8, root=frame, ent_name='comments', data=data)
+    win.append_entry_row("Outil", root=frame, row=2, ent_name='tool')
+    win.append_entry_row("Diamètre", root=frame, row=3, ent_name='diameter')
+    win.append_entry_row("Nombre de dents", root=frame, row=4, ent_name='n_teeth')
+    win.append_entry_row("Opérateur", row=5, root=frame, ent_name='user_name')
+    win.append_date(root=frame, row=6)
+    win.append_entry_row("Lubrification", row=7, root=frame, ent_name='lubrication')
+    win.append_entry_row("Commentaires", row=8, root=frame, ent_name='comments')
 
     frame.pack(padx=20, pady=20)
 
@@ -86,9 +71,6 @@ def get_operation_window_headers(target):
     elif target == 'AD max':
         entries = ["Vitesse de coupe Vc (m/min)",
                    "Avance par dent fz (mm/tr)",]
-                   # "Vitesse de broche N",
-                   # "Vitesse d'avance Vf (m/min)"]
-        # dynamic_table_headers = ["Mesure n°", "Engagement axial ap(mm)", "Engagement radial ae(mm)", "N", "Vf", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Wc (W)", "AD", "Statut"]
 
         dynamic_table_headers = ["Mesure n°", "Engagement axial ap (mm)", "Engagement radial ae (mm)", "Épaisseur de coupe h (mm)", "Fichier de mesure", "Pc (W)", "Énergie spécifique de coupe Wc (W)", "Section de coupe AD", "Statut"]
     elif target == 'Q max':
@@ -112,8 +94,12 @@ def set_operation_window_constant_parameters(win, entries):
 
     # Set buttons
     buttons_frame = tk.Frame(win, name="buttons")
-    btn_next = tk.Button(buttons_frame, text="Valider", command=lambda **kwargs: win.change_program_state(actions=["get_data", "next"], action_root=[input_parameters_frame]), padx=10, pady=5, font='Helvetica 11 bold')
-    btn_back = tk.Button(buttons_frame, text="Revenir à la fenêtre précédente", command=lambda **kwargs: win.change_program_state(actions=["back"], action_root=[input_parameters_frame]), padx=10, pady=5, font='Helvetica 11 bold')
+    btn_next = tk.Button(buttons_frame, text="Valider",
+                         command=lambda **kwargs: win.change_program_state(actions=["get_data", "next"], action_root=[input_parameters_frame]),
+                         padx=10, pady=5, font='Helvetica 11 bold')
+    btn_back = tk.Button(buttons_frame, text="Revenir à la fenêtre précédente",
+                         command=lambda **kwargs: win.change_program_state(actions=["back"], action_root=[input_parameters_frame]),
+                         padx=10, pady=5, font='Helvetica 11 bold')
 
     btn_next.grid(row=0, column=0, padx=20, pady=5)
     btn_back.grid(row=0, column=2, padx=20, pady=5)
@@ -127,10 +113,10 @@ def set_operation_window_dynamic_parameters(win, target, table_headers):
     win.append_label_row(["Paramètres d’entrée", "Valeurs utilisées"], root=constant_parameters_frame, header=True)
 
     if target == 'AD max':
-        d = float(win.general_parameters['diameter'])
+        d = float(win.data['general_parameters']['diameter'])
         Vc = float(win.result['input_parameters']['vitesse de coupe vc (m/min)'])
         fz = float(win.result['input_parameters']['avance par dent fz (mm/tr)'])
-        z = float(win.general_parameters['n_teeth'])
+        z = float(win.data['general_parameters']['n_teeth'])
 
         N = compute_N(Vc, d)
 
@@ -154,7 +140,7 @@ def set_operation_window_dynamic_parameters(win, target, table_headers):
         search_param_lbl = tk.Label(win, text=f"{search_param} = ", width=22, font='Helvetica 11 bold', name='search_param', borderwidth=2, relief="solid")
 
     # Set dynamic table first row
-    if win.debug:
+    if win.data['debug'] > 1:
         for i in range(10):
             win.append_dynamic_row(root=dynamic_parameters_frame.interior)
 
@@ -173,20 +159,6 @@ def set_operation_window_dynamic_parameters(win, target, table_headers):
     win.append_buttons(table_headers, root=buttons_frame, root_table=[constant_parameters_frame, dynamic_parameters_frame.interior])
 
 
-# def dynamic_table_validation(target, table):
-#     dynamic_table_values = compute_dynamic_table(target, table)
-#
-#     if target in ['Vc min', 'f min']:
-#         show_graphic(dynamic_table_values)
-#         return dynamic_table_values['best_range_min']
-#     elif target in ['AD max', 'Q max']:
-#         return np.max(dynamic_table_values['y'])
-#
-#     # if validated:
-#     #     target_parameter = str(table)[str(table).rfind('Détermination de ') + 17:].lower()
-#     #     self.pcs[target_parameter] = pcs
-
-
 def show_graphic(data, win):
     # DATA FRAME
     data_frame = tk.Frame(win, name='data_frame')
@@ -197,13 +169,18 @@ def show_graphic(data, win):
 
     win.append_label_row([x_param_name, "Wc (W*min/cm3)"], root=table_frame.interior, header=True)
 
-    for row_idx, (vci, wci) in enumerate(zip(data['x'], data['y'])):
+    # for row_idx, (vci, wci) in enumerate(zip(data['x'], data['y'])):
+    for row_idx, (vci, wci) in enumerate(zip(data[0], data[1])):
         win.append_label_row([vci, wci], root=table_frame.interior, row=row_idx+1)
+
+    # SET VC MIN RESULT ENTRY
+    results_frame = tk.Frame(data_frame, name='results_frame')
+    win.append_entry_row(win.target, root=results_frame, ent_field=np.min(data[1]))
 
     # BUTTONS
     btns_frame = tk.Frame(data_frame, name='buttons_frame')
 
-    next_btn = tk.Button(btns_frame, text="Valider", command=lambda **kwargs: win.change_program_state(actions=["next"], root=win), padx=10, pady=5, font='Helvetica 11 bold')
+    next_btn = tk.Button(btns_frame, text="Valider", command=lambda **kwargs: win.change_program_state(actions=["get_target", "next"], root=win), padx=10, pady=5, font='Helvetica 11 bold')
     return_btn = tk.Button(btns_frame, text="Revenir à la fenêtre précédente", command=lambda **kwargs: win.change_program_state(actions=["back"], action_root=[table_frame.interior]), padx=10, pady=5, font='Helvetica 11 bold')
 
     next_btn.grid(row=1, column=0, padx=10, pady=10)
@@ -213,24 +190,34 @@ def show_graphic(data, win):
 
     # GRAPH
     axis_labels = {'x_lab': x_param_name, 'y_lab': "Énergie spécifique de coupe Wc (W)"}
-    figure, win.result[win.target] = plot_tangent_data(data, axis_labels)
+
+    figure, res = plot_tangent_data(data, axis_labels)
+
     graph_frame = GraphFrame(win, name='graph_frame', figure=figure)
     graph_frame.pack(side=tk.RIGHT, padx=20, pady=20)
 
     # pack inner data table
     table_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
+    results_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
     btns_frame.pack(side=tk.BOTTOM, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
 
+    return res
 
-def set_operation_window(win, target, data):
-    debug = False
+    # if res is None:
+    #     return False
+    # else:
+    #     win.result[win.target] = res
+    #     return True
+
+
+def set_operation_window(win, target):
     step = 0
     entries, dynamic_table_headers = get_operation_window_headers(target)
 
     while 0 <= step < 3:
-        if step == 1:
-            if debug:
-                win.result['input_parameters'] = {'engagement axial ap (mm)': '1', 'engagement radial ae (mm)': '2', 'avance par dent fz (mm/tr)': '3'}
+        if step == 0:
+            if win.data['debug'] > 2:
+                win.result['input_parameters'] = dict(zip(entries, np.ones_like(entries)))
                 step = step + 1
             else:
                 # Set constant parameters table
@@ -250,10 +237,16 @@ def set_operation_window(win, target, data):
                 dynamic_table_values = compute_dynamic_table(target, win)
 
                 win.set_win_title(f'Résultats {target}')
-                show_graphic(dynamic_table_values, win)
+                res = show_graphic(dynamic_table_values, win)
+                # if res is None:
+                #     step -= 2
+
                 win()
 
-                # win.result[target] = dynamic_table_values['min_target_value']
+                # win.result[target]
+                #
+                # if res:
+                #     win.result[target] = dynamic_table_values['min_target_value']
 
             elif target in ['AD max', 'Q max']:
                 win.result[target] = [win.max_params['AD'], win.max_params['Q']][['AD max', 'Q max'].index(target)]
@@ -265,9 +258,9 @@ def set_user_window(app_name, target, **kwargs):
     # kwargs['debug'] = True
     win = Window(app_name, window_title=f'Détermination de {target}', target=target, **kwargs)
     if target == "Caractéristiques de l'usinage":
-        set_general_machining_characteristics(win, kwargs["data"])
+        set_general_machining_characteristics(win)
     else:
-        set_operation_window(win, target, kwargs["data"])
+        set_operation_window(win, target)
 
     res = win.result
     action = win.action
