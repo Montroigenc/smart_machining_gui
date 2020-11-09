@@ -14,10 +14,17 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 
 from utils.utils import load_tools_data
-from data_manager.data_manager import get_pc_from_machining_file_unique_entry
-from windows.formulas import compute_Q, compute_Wc, compute_h, compute_N, compute_Vf
+from data_manager.data_manager import get_pc_from_machining_file
+from graphical_interfaces.formulas import compute_Q, compute_Wc, compute_h, compute_N, compute_Vf
+from graphical_interfaces.tangent_method import plot_tangent_data
 
 dummy_pc_file = "C:/Users/RI/Desktop/smart_machining/Test full.csv"
+
+LARGE_FONT = ("Verdana", 12)
+
+
+def raise_frame(frame):
+    frame.tkraise()
 
 
 class VerticalScrolledFrame(tk.Frame):
@@ -67,6 +74,23 @@ class VerticalScrolledFrame(tk.Frame):
         canvas.bind('<Configure>', _configure_canvas)
 
 
+# class GraphFrameLoadingData(tk.Frame):
+#     def __init__(self, parent, name):
+#         tk.Frame.__init__(self, parent, name=name)
+#
+#         self.figure = Figure(figsize=(5, 5), dpi=100)
+#         self.subplot = self.figure.add_subplot(111)
+#         # self.subplot.plot(data['x'], data['y'])
+#
+#         canvas = FigureCanvasTkAgg(self.figure, self)
+#         canvas.draw()
+#         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+#
+#         toolbar = NavigationToolbar2Tk(canvas, self)
+#         toolbar.update()
+#         canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+
 class GraphFrame(tk.Frame):
     def __init__(self, parent, name, figure):
         tk.Frame.__init__(self, parent, name=name)
@@ -86,20 +110,98 @@ class GraphFrame(tk.Frame):
         canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 
+class StartFrame(tk.Frame):
+    def __init__(self, parent, controller, name):
+        tk.Frame.__init__(self, parent, name=name)
+
+
+class AuxGraphFrame(tk.Frame):
+    def __init__(self, parent, controller, name):
+        tk.Frame.__init__(self, parent, name=name)
+
+        self.controller = controller
+        self.res = None
+
+    def generate_fig(self):
+        self.figure = Figure(figsize=(5, 5), dpi=100)
+        self.subplot = self.figure.add_subplot(111)
+
+        self.canvas = FigureCanvasTkAgg(self.figure, self)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)  #side=tk.LEFT, fill=tk.BOTH, expand=True)  # side=tk.BOTTOM)  #, fill=tk.BOTH, expand=True)
+
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self)
+        self.toolbar.update()
+        self.canvas._tkcanvas.pack(fill=tk.BOTH, expand=True)  #side=tk.LEFT)  #side=tk.TOP)  #, fill=tk.BOTH, expand=True)
+
+    def generate_widgets_power(self):
+        # BUTTONS
+        btns_frame = tk.Frame(self, name='buttons_frame')
+
+        next_btn = tk.Button(btns_frame, text="Valider", command=lambda **kwargs: self.controller.change_program_state(actions=["back_to_frame_0_set_ok"], root=self.controller), padx=10, pady=5, font='Helvetica 11 bold')
+        return_btn = tk.Button(btns_frame, text="Revenir à la fenêtre précédente", command=lambda **kwargs: self.controller.change_program_state(actions=["back_to_frame_0_set_ko"]), padx=10, pady=5, font='Helvetica 11 bold')
+
+        next_btn.grid(row=1, column=0, padx=10, pady=10)
+        return_btn.grid(row=1, column=1, padx=10, pady=10)
+
+        btns_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+
+    def generate_widgets_tangent(self, data):
+        # DATA FRAME
+        data_frame = tk.Frame(self, name='data_frame')
+
+        # DATA TABLE
+        table_frame = VerticalScrolledFrame(data_frame, interior_name='table')
+        x_param_name = "Vitesse de coupe Vc (m/min)" if self.controller.target == "Vc min" else "Épaisseur de coupe h (mm)"
+
+        self.controller.append_label_row([x_param_name, "Wc (W*min/cm3)"], root=table_frame.interior, header=True)
+
+        for row_idx, (vci, wci) in enumerate(zip(data[0], data[1])):
+            self.controller.append_label_row([vci, wci], root=table_frame.interior, row=row_idx + 1)
+
+        # SET VC MIN RESULT ENTRY
+        results_frame = tk.Frame(data_frame, name='results_frame')
+        self.controller.append_entry_row(self.controller.target, root=results_frame, ent_field=np.min(data[1]))
+
+        # BUTTONS
+        btns_frame = tk.Frame(data_frame, name='buttons_frame')
+
+        next_btn = tk.Button(btns_frame, text="Valider", command=lambda **kwargs: self.controller.change_program_state(actions=["get_target", "back_to_frame_0_set_ok"], root=self.controller), padx=10, pady=5, font='Helvetica 11 bold')
+        return_btn = tk.Button(btns_frame, text="Revenir à la fenêtre précédente", command=lambda **kwargs: self.controller.change_program_state(actions=["back_to_frame_0_set_ko"], action_root=[table_frame.interior]), padx=10, pady=5, font='Helvetica 11 bold')
+
+        next_btn.grid(row=1, column=0, padx=10, pady=10)
+        return_btn.grid(row=1, column=1, padx=10, pady=10)
+
+        # data_frame.pack(side=tk.RIGHT, padx=10, pady=10)  #, fill=tk.BOTH, expand=tk.TRUE)
+
+        # GRAPH
+        axis_labels = {'x_lab': x_param_name, 'y_lab': "Énergie spécifique de coupe Wc (W)"}
+
+        self.res = plot_tangent_data(self, data, axis_labels)
+        #
+        # graph_frame = GraphFrame(self, name='graph_frame', figure=figure)
+        # graph_frame.pack(side=tk.RIGHT, padx=20, pady=20)
+
+        # pack inner data table
+        table_frame.pack(side=tk.TOP, padx=10, pady=10)  #, fill=tk.BOTH, expand=tk.TRUE)
+        results_frame.pack(side=tk.TOP, padx=10, pady=10)  #, fill=tk.BOTH, expand=tk.TRUE)
+        btns_frame.pack(side=tk.BOTTOM, padx=10, pady=10)  #, fill=tk.BOTH, expand=tk.TRUE)
+
+        data_frame.pack(side=tk.LEFT)  # , fill=tk.BOTH, expand=tk.TRUE)
+
+
 class Window(tk.Tk):
     def __init__(self, app_name, **kwargs):
         tk.Tk.__init__(self)
         self.protocol("WM_DELETE_WINDOW", self.user_exit)
         self.title(app_name)
 
-        # if 'window_title' in kwargs:
-        #     tk.Label(self, text=kwargs['window_title'], padx=5, pady=5, font='Helvetica 15 bold').pack(pady=15)
+        tk.Label(self, text='', padx=5, pady=5, font='Helvetica 15 bold', name='title').pack(pady=15)
 
         self.target = kwargs['target'] if 'target' in kwargs else None
         self.manual_exit = False
         self.tools_data = []
         self.available_operations = kwargs['available_operations'] if 'available_operations' in kwargs else None
-        # self.general_parameters = kwargs['general_parameters'] if 'general_parameters' in kwargs else None
 
         self.data = kwargs['data'] if 'data' in kwargs else None
 
@@ -108,11 +210,29 @@ class Window(tk.Tk):
         self.max_params = {'AD': -1, 'Q': -1}
 
         self.action = None
-        self.debug = kwargs['debug'] if 'debug' in kwargs else False
+        self.debug = kwargs['data']['debug'] if 'debug' in kwargs['data'] else False
         self.name = None
 
+        self.container = tk.Frame(self)
+        self.container.pack(side="top", fill="both", expand=True)
+        self.container.grid_rowconfigure(0, weight=1)
+        self.container.grid_columnconfigure(0, weight=1)
+
+        self.frames = {}
+
+        for f_idx, F in enumerate([StartFrame, AuxGraphFrame]):
+            frame = F(self.container, self, f'frame_{f_idx}')
+
+            self.frames[f'frame_{f_idx}'] = frame
+
+            frame.grid(row=0, column=0, sticky="nsew")
+
+        self.show_frame('frame_0')
+
+        # self.mainloop()
+
     def set_win_title(self, window_title):
-        tk.Label(self, text=window_title, padx=5, pady=5, font='Helvetica 15 bold').pack(pady=15)
+        self.children['title'].configure(text=window_title)
 
     def __call__(self, *args, **kwargs):
         self.mainloop()
@@ -162,7 +282,7 @@ class Window(tk.Tk):
 
     def update_ADQ_max(self, dynamic_widgets, n, **kwargs):
         if self.target in ['AD max', 'Q max']:
-            root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
+            root = [v for (k, v) in self.frames['frame_0'].children.items() if 'verticalscrolledframe' in k][0].interior
 
             target_widgets = np.asarray([kw[1]['text'] for kw in root.children.items() if f'{self.target.split()[0].lower()}_' in kw[0].split('.')[-1]])
             status_list = [kw[1].get() == 'OK' for kw in root.children.items() if "statut_" in kw[0]]
@@ -200,37 +320,39 @@ class Window(tk.Tk):
 
         return vals
 
-    def update_dynamic_row(self, filename, btn, **kwargs):
-        root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
+    def get_Pc(self, filename_, **kwargs):
+        # Set Pc (W)
+        if filename_ is None:
+            Pc = np.random.randint(10, 100)
+            filename = 'dummy'
+        else:
+            self.frames['frame_1'].generate_fig()
+            self.frames['frame_1'].generate_widgets_power()
+
+            self.show_frame('frame_1')
+            file_data = get_pc_from_machining_file(self, filename_)
+            Pc = float(file_data['Pc']) if file_data is not None else None
+
+        return Pc
+
+    def update_dynamic_row(self, btn, filename=None, Pc=None, **kwargs):
+        # Set Pc (W)
+        if Pc is None:
+            Pc = np.random.randint(10, 100)
+            filename = 'dummy'
+
+        root = [v for (k, v) in self.frames['frame_0'].children.items() if 'verticalscrolledframe' in k][0].interior
 
         row = btn.grid_info()['row']
 
         # Get all widgets of the pressed button row
         widgets = [kv for kv in root.children.values() if kv.grid_info()['row'] == row and kv.grid_info()['column'] > 0]
 
-        # CHECK IF REQUIRED ENTRIES ARE ALREADY FILLED
-        empty_entries = []
-        for w in widgets:
-            if isinstance(w, tk.Entry):
-                if w.get() == '':
-                    empty_entries.append(str(w).split('.')[-1])
-
-        if len(empty_entries) > 0:
-            tk.messagebox.showerror("Error", f"Les champs {','.join(empty_entries)} doivent être remplis", icon='error')
-            return True
-
         # Check if there was already a selected file
         already_used = btn['text'] != 'Parcourir'
 
         # Set green and text filename in button
         btn.configure(fg="green", text=filename)
-
-        # Set Pc (W)
-        if self.data['debug'] > 1:
-            Pc = np.random.randint(10, 100)
-        else:
-            file_data = get_pc_from_machining_file_unique_entry(filename, self.data['debug'] < 2)
-            Pc = float(file_data['Pc'])
 
         [w for w in widgets if 'pc (w)' in str(w).split('.')[-1]][0].configure(text=f'{Pc:.2f}')
 
@@ -264,58 +386,80 @@ class Window(tk.Tk):
                 AD = ap * ae
                 widget.configure(text=f'{compute_Q(AD, Vf):.4f}')
 
-            # elif 'Label' in str(type(widget)):
-            #     if 'statut' in widget_name:
-            #         widget.configure(text="OK")
-            #     else:
-            #         widget.configure(text=f'{random.randint(0, 10)}')
-            #
-            # elif 'Entry' in str(type(widget)):
-            #     widget.delete(0, tk.END)
-            #     widget.insert(0, f'{random.randint(0, 10)}')
-
         self.update_ADQ_max(widgets, row, **kwargs)
 
         return already_used
 
+    def check_required_entries(self, btn):
+        root = [v for (k, v) in self.frames['frame_0'].children.items() if 'verticalscrolledframe' in k][0].interior
+        row = btn.grid_info()['row']
+
+        # Get all widgets of the pressed button's row
+        widgets = [kv for kv in root.children.values() if kv.grid_info()['row'] == row and kv.grid_info()['column'] > 0]
+
+        # CHECK IF REQUIRED ENTRIES ARE ALREADY FILLED
+        empty_entries = []
+        for w in widgets:
+            if isinstance(w, tk.Entry):
+                if w.get() == '':
+                    empty_entries.append(str(w).split('.')[-1])
+
+        res = len(empty_entries) == 0
+        if not res:
+            tk.messagebox.showerror("Error", f"Les champs {','.join(empty_entries)} doivent être remplis", icon='error')
+
+        return res
+
     def change_program_state(self, *args, **kwargs):
         for action in kwargs['actions']:
             if 'select_file' in action:
-                filename = tk.filedialog.askopenfilename(initialdir="/", title="Sélectionner un fichier")
-                if filename != "":
-                    if action == 'select_file_pc':
-                        already_used = self.update_dynamic_row(filename, args[0].widget, **kwargs)
+                # CHECK IF REQUIRED ENTRIES ARE ALREADY FILLED
+                res = self.check_required_entries(args[0].widget)
+                if not res:
+                    continue
 
-                        if not already_used:
-                            self.append_dynamic_row(root=[kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior)
-                    elif action == 'select_file_existing':
-                        self.result["file_name"] = filename
+                # filename = 'C:/Users/RI/Desktop/smart_machining/Test full.csv'
+                filename = tk.filedialog.askopenfilename(initialdir="/", title="Sélectionner un fichier")
+                if filename == "":
+                    continue
+
+                if action == 'select_file_pc':
+                    # Get Pc (W)
+                    Pc = self.get_Pc(filename)
+                    if Pc is None:
+                        continue
+
+                    already_used = self.update_dynamic_row(args[0].widget, filename, Pc=Pc, **kwargs)
+
+                    if not already_used:
+                        self.append_dynamic_row(root=[v for (k, v) in self.frames['frame_0'].children.items() if 'verticalscrolledframe' in k][0].interior)
+
+                elif action == 'select_file_existing':
+                    self.result["file_name"] = filename
 
             elif action == "get_data":
                 if self.target == "Caractéristiques de l'usinage":
-                    root = [kv[1] for kv in self.children.items() if 'general_machining_characteristics' in kv[0]][0]
+                    root = [v for (k, v) in self.frames['frame_0'].children.items() if 'general_machining_characteristics' in k][0]
                     self.result = self.get_data(root.children.items())
                 else:
-                    root = [kv[1] for kv in self.children.items() if 'input_parameters' in kv[0]]
-                    if len(root) > 0:
-                        self.result["input_parameters"] = self.get_data(root[0].children.items())
+                    if 'input_parameters' in self.children['!frame'].children['frame_0'].children.keys():
+                        root = [v for (k, v) in self.frames['frame_0'].children.items() if 'input_parameters' in k][0]
+                        self.result["input_parameters"] = self.get_data(root.children.items())
 
-                    root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]]
-                    if len(root) > 0:
-                        self.result["dynamic_parameters"] = self.get_data(root[0].interior.children.items())
-
-                    # for table in [self.children['input_parameters'], root[0].interior]:
-                    #     self.result.update(self.get_data(table.children.items()))
+                    if '!verticalscrolledframe' in self.frames['frame_0'].children.keys():
+                        root = [v for (k, v) in self.frames['frame_0'].children.items() if 'verticalscrolledframe' in k][0].interior
+                        self.result["dynamic_parameters"] = self.get_data(root.children.items())
 
             elif action == "get_target":
-                self.result[self.target] = float(self.children['data_frame'].children['results_frame'].children[self.target.lower()].get())
+                root = [v for (k, v) in self.frames['frame_1'].children.items() if 'data_frame' in k][0]
+                self.result[self.target] = float(root.children['results_frame'].children[self.target.lower()].get())
 
             elif action == "compute_pc":
                 dynamic_parameters = [i for i in kwargs['action_root'] if 'dynamic' in str(i)][0]
                 self.result['computation_results'] = self.dynamic_table_validation(dynamic_parameters)
 
             elif action == "delete_line":
-                root = [kv[1] for kv in self.children.items() if 'verticalscrolledframe' in kv[0]][0].interior
+                root = [v for (k, v) in self.frames['frame_0'].children.items() if 'verticalscrolledframe' in k][0].interior
 
                 # n = int(args[0].widget._name.split('_')[-1])
                 n = [child.grid_info()["row"] for child in root.grid_slaves() if child is args[0].widget][0]
@@ -348,20 +492,28 @@ class Window(tk.Tk):
                 if not new_line_not_needed:
                     self.append_dynamic_row(root=root)
 
-            elif action == "back" or action == "next":
-                # root = kwargs['root'] if 'root' in kwargs else self
+            elif "back_to_frame" in action:
+                self.show_frame('frame_0')
+                self.frames['frame_1'].res = 'set_ok' in action
 
-                for child in self.winfo_children():
-                    child.destroy()
+                for c in self.frames['frame_1'].winfo_children():
+                    c.destroy()
+
                 self.quit()
 
-                # if action == "back":
-                #     root.destroy()
-                # elif action == "next":
-                #     for child in root.winfo_children():
-                #         child.destroy()
-                #     root.quit()
+            elif action == "back" or action == "next":
+                for c in self.frames['frame_0'].winfo_children():
+                    c.destroy()
 
+                self.quit()
+                self.action = action
+
+            elif action == "destroy_all_frames":
+                for child in self.winfo_children():
+                    child.destroy()
+                # self.destroy()
+
+                self.quit()
                 self.action = action
 
     def append_date(self, **kwargs):
@@ -503,13 +655,21 @@ class Window(tk.Tk):
 
             if key == "Fichier de mesure":
                 btn = tk.Button(root, text="Parcourir", name=name)
+                # btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['select_file_pc']))
                 btn.bind("<Button-1>", lambda event, **kwargs: self.change_program_state(event, actions=['select_file_pc']))
                 btn.grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
-            elif key in ['Engagement axial ap (mm)', 'Engagement radial ae (mm)', "Vitesse de coupe Vc (m/min)", "Avance par dent fz (mm/tr)", "Statut"]:
+            elif key in ['Engagement axial ap (mm)', 'Engagement radial ae (mm)', "Vitesse de coupe Vc (m/min)", "Avance par dent fz (mm/tr)"]:
                 ent = tk.Entry(root, width=25, name=name, justify='center')
                 if self.data['debug']:
                     ent.insert(0, f'{random.randint(1, 10)}')
+
+                ent.grid(row=row, column=col_idx + 1, pady=5, padx=0)
+
+            elif key == "Statut":
+                ent = tk.Entry(root, width=25, name=name, justify='center')
+                if self.data['debug']:
+                    ent.insert(0, 'OK')
 
                 ent.grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
@@ -522,8 +682,7 @@ class Window(tk.Tk):
                 tk.Label(root, text='...', name=name).grid(row=row, column=col_idx + 1, pady=5, padx=0)
 
         if self.data['debug'] > 1:
-            # self.update_dynamic_row("dummy_file", btn, **kwargs)
-            self.update_dynamic_row(dummy_pc_file, btn, **kwargs)
+            self.update_dynamic_row(btn, **kwargs)
 
     def user_exit(self):
         selection = tk.messagebox.askquestion("quitter l'application", "Voulez-vous vraiment quitter l'application?", icon='warning')

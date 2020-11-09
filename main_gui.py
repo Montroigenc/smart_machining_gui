@@ -2,8 +2,9 @@ import os
 import sys
 import json
 from datetime import datetime
+import logging
 
-from windows.windows_manager import set_user_window
+from graphical_interfaces.windows_manager import set_user_window
 from utils.utils import load_config
 # import traceback
 # import tkinter as tk
@@ -23,7 +24,12 @@ class UserGUI:
         self.app_name = config_params['nom_application']
         self.available_operations = config_params['opérations_disponibles'].split(',')
         self.output_dir = config_params['output_dir']
-        self.debug_level = config_params['debug_level']
+        self.debug_level = int(config_params['debug_level'])
+
+        if self.debug_level > 0:
+            logging.basicConfig(level=logging.DEBUG)
+        else:
+            logging.basicConfig(level=logging.INFO)
 
         self.data_file_name = f"{self.output_dir}/{str(datetime.now()).replace(' ', '_').replace(':', '-').replace('.', 'c')}_data.txt"
 
@@ -33,16 +39,13 @@ class UserGUI:
 
     def __call__(self):
         data = {"general_parameters": dict(), "operation_parameters": dict(), "debug": int(self.debug_level)}
-        # operation_parameters = dict()
 
         step = 0
-        # action = 'next'
         while step < 5:
-            print(f'Step {step}')
+            logging.debug(f'Step {step}')
             if step == 0:
                 # ask user to chose a tool from the predefined list in the config file
                 data["general_parameters"], action = set_user_window(self.app_name, "Caractéristiques de l'usinage", available_operations=self.available_operations, data=data)
-                # general_parameters = {'operation': 'Fraisage', 'tool': 'Outil1', 'diameter': '1', 'n_teeth': '9', 'user_name': 'werth', 'date': '25/août/2020', 'lubrication': 'etz', 'comments': 'etzj'}; action = "next"
 
                 if 'file_name' in data["general_parameters"]:
                     self.data_file_name = data["general_parameters"]["file_name"]
@@ -78,9 +81,9 @@ class UserGUI:
 
 if __name__ == "__main__":
     # try:
-    print("LOCOMO (LOgiciel COm MicrO5) app launched")
+    logging.info("LOCOMO (LOgiciel COm MicrO5) app launched")
     gui = UserGUI()
-    # gui()
+    gui()
     # except:
     #     root = tk.Tk()
     #     root.withdraw()

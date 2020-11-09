@@ -1,14 +1,7 @@
 import tkinter as tk
-# import matplotlib
-# import sys
 
-# matplotlib.use("TkAgg")
-# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-# from matplotlib.figure import Figure
-
-from windows.windows import Window, VerticalScrolledFrame, GraphFrame
-from windows.formulas import *
-from windows.tangent_method import plot_tangent_data
+from graphical_interfaces.graphical_interfaces import Window, VerticalScrolledFrame
+from graphical_interfaces.formulas import *
 
 
 def parse_res(win):
@@ -29,13 +22,8 @@ def parse_res(win):
 
 
 def set_general_machining_characteristics(win):
-    frame = tk.Frame(win, name='general_machining_characteristics')
-
-    # Set text entries
-    # win.append_combobox_row("Opération", list(win.available_operations), fcn=win.operation_cbox_callback, root=frame, row=1, name='operation')
-    # win.append_combobox_row("Outil", list(win.tools_data), fcn=win.tool_cbox_callback, root=frame, row=2, name='tool')
-    # win.append_label_row(["Diamètre :", ""], root=frame, row=3, names=['', 'diameter'])
-    # win.append_label_row(["Nombre de dents :", ""], root=frame, row=4, names=['', 'n_teeth'])
+    start_frame = [*win.frames.values()][0]
+    frame = tk.Frame(start_frame, name='general_machining_characteristics')
 
     win.append_label_row(["Opération :", "Fraisage"], root=frame, row=1, names=['', 'operation'])
     win.append_entry_row("Outil", root=frame, row=2, ent_name='tool')
@@ -49,7 +37,7 @@ def set_general_machining_characteristics(win):
     frame.pack(padx=20, pady=20)
 
     # Set buttons
-    buttons_frame = tk.Frame(win, name='buttons')
+    buttons_frame = tk.Frame(start_frame, name='buttons')
     tk.Button(buttons_frame, text=" Suivant ", command=lambda **kwargs: win.change_program_state(actions=["get_data", "next"], action_root=[frame]), pady=5).grid(row=0, column=0)
     tk.Button(buttons_frame, text=" Télécharger un document existant ", command=lambda **kwargs: win.change_program_state(actions=["select_file_existing", "back"], action_root=[frame]), pady=5).grid(row=0, column=1)
     buttons_frame.pack(padx=20, pady=20)
@@ -82,8 +70,10 @@ def get_operation_window_headers(target):
 
 
 def set_operation_window_constant_parameters(win, entries):
+    start_frame = [*win.frames.values()][0]
+
     # Set constant parameters table
-    input_parameters_frame = tk.Frame(win, name="input_parameters", highlightthickness=2, highlightbackground="black")
+    input_parameters_frame = tk.Frame(start_frame, name="input_parameters", highlightthickness=2, highlightbackground="black")
 
     win.append_label_row(["Paramètres d’entrée", "Valeurs utilisées"], root=input_parameters_frame, header=True)
 
@@ -93,7 +83,7 @@ def set_operation_window_constant_parameters(win, entries):
     input_parameters_frame.pack(padx=15, pady=15)
 
     # Set buttons
-    buttons_frame = tk.Frame(win, name="buttons")
+    buttons_frame = tk.Frame(start_frame, name="buttons")
     btn_next = tk.Button(buttons_frame, text="Valider",
                          command=lambda **kwargs: win.change_program_state(actions=["get_data", "next"], action_root=[input_parameters_frame]),
                          padx=10, pady=5, font='Helvetica 11 bold')
@@ -107,8 +97,13 @@ def set_operation_window_constant_parameters(win, entries):
 
 
 def set_operation_window_dynamic_parameters(win, target, table_headers):
+    start_frame = [*win.frames.values()][0]
+
+    # SET MAIN FRAME
+    # main_frame = tk.Frame(start_frame, name="main")
+
     # Set Vc input parameters table
-    constant_parameters_frame = tk.Frame(win, name="constant_parameters", highlightthickness=2, highlightbackground="black")
+    constant_parameters_frame = tk.Frame(start_frame, name="constant_parameters", highlightthickness=2, highlightbackground="black")
 
     win.append_label_row(["Paramètres d’entrée", "Valeurs utilisées"], root=constant_parameters_frame, header=True)
 
@@ -127,9 +122,10 @@ def set_operation_window_dynamic_parameters(win, target, table_headers):
         win.append_label_row([key, entry], row=i + 1, root=constant_parameters_frame)
 
     constant_parameters_frame.pack(padx=15, pady=15)
+    # constant_parameters_frame.grid(row=0, column=0, sticky='news')
 
     # Set dynamic table frame
-    dynamic_parameters_frame = VerticalScrolledFrame(win, interior_name=f'dynamic_parameters_{target}')
+    dynamic_parameters_frame = VerticalScrolledFrame(start_frame, interior_name=f'dynamic_parameters_{target}')
 
     # Set dynamic table headers
     win.append_label_row(table_headers + [""], root=dynamic_parameters_frame.interior, header=True)
@@ -143,71 +139,84 @@ def set_operation_window_dynamic_parameters(win, target, table_headers):
     if win.data['debug'] > 1:
         for i in range(10):
             win.append_dynamic_row(root=dynamic_parameters_frame.interior)
-
     else:
         win.append_dynamic_row(root=dynamic_parameters_frame.interior)
 
     dynamic_parameters_frame.pack(padx=15, pady=15)
+    # dynamic_parameters_frame.grid(row=0, column=1, sticky='news')
 
-    # Additional search parameter packed here to avoid error while non existing search parameter widged while debugging with append_dynamic_row
+    # Additional search parameter packed here to avoid error while non existing search parameter widget while debugging with append_dynamic_row
     if 'max' in target:
         search_param_lbl.pack(padx=15, pady=15)
+        # dynamic_parameters_frame.grid(row=0, column=2, sticky='news')
 
     # Set buttons
-    buttons_frame = tk.Frame(win, name="buttons")
+    buttons_frame = tk.Frame(start_frame, name="buttons")
     buttons_frame.pack(padx=15, pady=15)
     win.append_buttons(table_headers, root=buttons_frame, root_table=[constant_parameters_frame, dynamic_parameters_frame.interior])
 
+    # if target in ['Vc min', 'f min']:
+    #     loading_data_graph_frame = GraphFrameLoadingData(win, name='loading_data_graph_frame')
+    #     loading_data_graph_frame.grid(row=0, column=0, sticky="nsew")
 
-def show_graphic(data, win):
-    # DATA FRAME
-    data_frame = tk.Frame(win, name='data_frame')
+    # main_frame.grid(row=0, column=0, sticky="nsew")
 
-    # DATA TABLE
-    table_frame = VerticalScrolledFrame(data_frame, interior_name='table')
-    x_param_name = "Vitesse de coupe Vc (m/min)" if win.target == "Vc min" else "Épaisseur de coupe h (mm)"
 
-    win.append_label_row([x_param_name, "Wc (W*min/cm3)"], root=table_frame.interior, header=True)
+# def show_tangent_graph(data, win):
+#     # DATA FRAME
+#     data_frame = tk.Frame(win.frames['frame_0'], name='data_frame')
+#
+#     # DATA TABLE
+#     table_frame = VerticalScrolledFrame(data_frame, interior_name='table')
+#     x_param_name = "Vitesse de coupe Vc (m/min)" if win.target == "Vc min" else "Épaisseur de coupe h (mm)"
+#
+#     win.append_label_row([x_param_name, "Wc (W*min/cm3)"], root=table_frame.interior, header=True)
+#
+#     for row_idx, (vci, wci) in enumerate(zip(data[0], data[1])):
+#         win.append_label_row([vci, wci], root=table_frame.interior, row=row_idx+1)
+#
+#     # SET VC MIN RESULT ENTRY
+#     results_frame = tk.Frame(data_frame, name='results_frame')
+#     win.append_entry_row(win.target, root=results_frame, ent_field=np.min(data[1]))
+#
+#     # BUTTONS
+#     btns_frame = tk.Frame(data_frame, name='buttons_frame')
+#
+#     next_btn = tk.Button(btns_frame, text="Valider", command=lambda **kwargs: win.change_program_state(actions=["get_target", "next"], root=win), padx=10, pady=5, font='Helvetica 11 bold')
+#     return_btn = tk.Button(btns_frame, text="Revenir à la fenêtre précédente", command=lambda **kwargs: win.change_program_state(actions=["back"], action_root=[table_frame.interior]), padx=10, pady=5, font='Helvetica 11 bold')
+#
+#     next_btn.grid(row=1, column=0, padx=10, pady=10)
+#     return_btn.grid(row=1, column=1, padx=10, pady=10)
+#
+#     data_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
+#
+#     # GRAPH
+#     axis_labels = {'x_lab': x_param_name, 'y_lab': "Énergie spécifique de coupe Wc (W)"}
+#
+#     figure, res = plot_tangent_data(data, axis_labels)
+#
+#     graph_frame = GraphFrame(win.frames['frame_0'], name='graph_frame', figure=figure)
+#     graph_frame.pack(side=tk.RIGHT, padx=20, pady=20)
+#
+#     # pack inner data table
+#     table_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
+#     results_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
+#     btns_frame.pack(side=tk.BOTTOM, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
+#
+#     return res
 
-    # for row_idx, (vci, wci) in enumerate(zip(data['x'], data['y'])):
-    for row_idx, (vci, wci) in enumerate(zip(data[0], data[1])):
-        win.append_label_row([vci, wci], root=table_frame.interior, row=row_idx+1)
 
-    # SET VC MIN RESULT ENTRY
-    results_frame = tk.Frame(data_frame, name='results_frame')
-    win.append_entry_row(win.target, root=results_frame, ent_field=np.min(data[1]))
+def show_tangent_graph(data, win):
+    win.show_frame('frame_1')
+    win.frames['frame_1'].generate_fig()
+    win.frames['frame_1'].generate_widgets_tangent(data)
 
-    # BUTTONS
-    btns_frame = tk.Frame(data_frame, name='buttons_frame')
+    win()
 
-    next_btn = tk.Button(btns_frame, text="Valider", command=lambda **kwargs: win.change_program_state(actions=["get_target", "next"], root=win), padx=10, pady=5, font='Helvetica 11 bold')
-    return_btn = tk.Button(btns_frame, text="Revenir à la fenêtre précédente", command=lambda **kwargs: win.change_program_state(actions=["back"], action_root=[table_frame.interior]), padx=10, pady=5, font='Helvetica 11 bold')
-
-    next_btn.grid(row=1, column=0, padx=10, pady=10)
-    return_btn.grid(row=1, column=1, padx=10, pady=10)
-
-    data_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
-
-    # GRAPH
-    axis_labels = {'x_lab': x_param_name, 'y_lab': "Énergie spécifique de coupe Wc (W)"}
-
-    figure, res = plot_tangent_data(data, axis_labels)
-
-    graph_frame = GraphFrame(win, name='graph_frame', figure=figure)
-    graph_frame.pack(side=tk.RIGHT, padx=20, pady=20)
-
-    # pack inner data table
-    table_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
-    results_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
-    btns_frame.pack(side=tk.BOTTOM, padx=10, pady=10, fill=tk.BOTH, expand=tk.TRUE)
+    res = win.frames['frame_1'].res
+    win.show_frame('frame_0')
 
     return res
-
-    # if res is None:
-    #     return False
-    # else:
-    #     win.result[win.target] = res
-    #     return True
 
 
 def set_operation_window(win, target):
@@ -237,16 +246,7 @@ def set_operation_window(win, target):
                 dynamic_table_values = compute_dynamic_table(target, win)
 
                 win.set_win_title(f'Résultats {target}')
-                res = show_graphic(dynamic_table_values, win)
-                # if res is None:
-                #     step -= 2
-
-                win()
-
-                # win.result[target]
-                #
-                # if res:
-                #     win.result[target] = dynamic_table_values['min_target_value']
+                res = show_tangent_graph(dynamic_table_values, win)
 
             elif target in ['AD max', 'Q max']:
                 win.result[target] = [win.max_params['AD'], win.max_params['Q']][['AD max', 'Q max'].index(target)]
@@ -255,7 +255,6 @@ def set_operation_window(win, target):
 
 
 def set_user_window(app_name, target, **kwargs):
-    # kwargs['debug'] = True
     win = Window(app_name, window_title=f'Détermination de {target}', target=target, **kwargs)
     if target == "Caractéristiques de l'usinage":
         set_general_machining_characteristics(win)
